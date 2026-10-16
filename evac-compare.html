@@ -132,6 +132,8 @@ h1 em { font-style: normal; color: var(--b); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
 .clock { font-family: var(--f-mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .clock small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.btn[data-state="on"] { border-color: var(--b); color: var(--b); }
+.btn[data-state="error"] { border-color: var(--fire); color: var(--fire); }
 .verdict { font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--b); color: var(--ink); background: var(--surface); }
 .verdict b { color: var(--b); }
 
@@ -233,6 +235,7 @@ h1 em { font-style: normal; color: var(--b); }
             <button type="button" data-floor="0" aria-pressed="false">1F</button>
             <button type="button" data-floor="1" aria-pressed="false">2F</button>
           </div>
+          <button class="btn" id="btnSerial" type="button" title="크롬·엣지에서 로컬 파일로 열었을 때 USB로 연결된 아두이노에 표지판 방향을 보냅니다"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 1h4v3h2v4a4 4 0 0 1-3 3.9V15H7v-3.1A4 4 0 0 1 4 8V4h2V1zm1 3h2V2H7v2z"/></svg><span id="serialLabel">아두이노 연결</span></button>
           <button class="btn" id="btnView" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 1.5 4.5v7L8 15l6.5-3.5v-7L8 1zm0 1.7 4.6 2.5L8 7.7 3.4 5.2 8 2.7zM3 6.5l4.3 2.3v4.4L3 10.9V6.5zm5.8 6.7V8.8L13 6.5v4.4l-4.2 2.3z"/></svg>시점 초기화</button>
         </div>
       </div>
@@ -968,6 +971,7 @@ function updateHud(force) {
   $('expA').textContent = a.exp.toFixed(2); $('expB').textContent = b.exp.toFixed(2);
   $('barExpA').style.width = `${a.exp / em * 100}%`; $('barExpB').style.width = `${b.exp / em * 100}%`;
   $('clock').innerHTML = `${fmt(sim.t)}<small>시뮬레이션 ${sim.speed}×</small>`;
+  syncServos(false);
 
   const sA = $('statusA'), sB = $('statusB');
   const set = (el, st, txt) => { if (el.dataset.state !== st || el.textContent !== txt) { el.dataset.state = st; el.textContent = txt; } };
@@ -1004,6 +1008,48 @@ $('speedSeg').addEventListener('click', e => {
 });
 $('floorSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setFocus(+b.dataset.floor); });
 $('btnView').addEventListener('click', () => Object.assign(cam, CAM_DEFAULT));
+
+/* ---------------- Arduino (Web Serial) ----------------
+   B 건물(구조판) 표지판 방향을 USB 시리얼로 보낸다. 한 줄에 명령 하나: "S,<서보번호>,<L|R>\n"
+   서보 0 = 1층 왼쪽, 1 = 1층 오른쪽, 2 = 2층 왼쪽, 3 = 2층 오른쪽.
+   왼쪽 표지판은 복도 왼쪽 구간(1번), 오른쪽 표지판은 오른쪽 구간(6번)의 안내 방향을 따른다. */
+const SERVO_SIGNS = [[0, 1], [0, 6], [1, 1], [1, 6]];   // [층, 복도 구간]
+const serial = { port: null, writer: null, sent: [], busy: false };
+function setSerialUi(state, text) { $('btnSerial').dataset.state = state; $('serialLabel').textContent = text; }
+async function serialWrite(line) {
+  if (!serial.writer) return;
+  try { await serial.writer.write(new TextEncoder().encode(line + '\n')); }
+  catch (err) { disconnectSerial('연결 끊김 · 다시 연결'); }
+}
+function syncServos(force) {
+  if (!serial.writer) return;
+  SERVO_SIGNS.forEach(([f, seg], i) => {
+    const dir = Bld.field[f][seg] > 0 ? 'R' : 'L';
+    if (force || serial.sent[i] !== dir) { serial.sent[i] = dir; serialWrite(`S,${i},${dir}`); }
+  });
+}
+async function disconnectSerial(text) {
+  const { port, writer } = serial;
+  serial.port = serial.writer = null; serial.sent = [];
+  try { if (writer) { writer.releaseLock(); } if (port) await port.close(); } catch (err) { /* already closed */ }
+  setSerialUi(text ? 'error' : '', text || '아두이노 연결');
+}
+$('btnSerial').addEventListener('click', async () => {
+  if (serial.busy) return;
+  if (serial.port) { disconnectSerial(); return; }
+  if (!('serial' in navigator)) { setSerialUi('error', '크롬·엣지에서 로컬 파일로 열어 주세요'); return; }
+  serial.busy = true;
+  try {
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    serial.port = port; serial.writer = port.writable.getWriter();
+    setSerialUi('on', '아두이노 연결됨 · 끊기');
+    setTimeout(() => syncServos(true), 1800);   // 우노는 포트를 열면 재부팅되므로 잠시 기다린다
+  } catch (err) {
+    setSerialUi(err && err.name === 'NotFoundError' ? '' : 'error', err && err.name === 'NotFoundError' ? '아두이노 연결' : '연결 실패 · 다시 시도');
+  } finally { serial.busy = false; }
+});
+if ('serial' in navigator) navigator.serial.addEventListener('disconnect', e => { if (e.target === serial.port) disconnectSerial('연결 끊김 · 다시 연결'); });
 
 /* ---------------- Pointer: orbit, zoom, floor pick ---------------- */
 const pointers = new Map(); let downAt = null, moved = 0, pinch0 = 0, zoom0 = 1;
