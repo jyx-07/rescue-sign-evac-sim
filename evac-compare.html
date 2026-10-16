@@ -247,7 +247,7 @@ h1 em { font-style: normal; color: var(--b); }
         <li><span class="dot" style="background: var(--exit)"></span>초록 표지판 · 화살표가 가리키는 계단으로 이동</li>
         <li><span class="dot" style="background: var(--fire)"></span>빨간 표지판 · 연기가 찬 계단, 진입 금지 (B 건물만)</li>
         <li><span class="dot" style="background: var(--fire)"></span>깜빡이는 센서 · 연기 감지. 두 건물 모두 감지하지만 표지판과 연동되는 건 B뿐</li>
-        <li><span class="dot" style="background: var(--smoke)"></span>연기 구역 통과 시 이동 속도 최대 60% 감소, 노출량 누적. 많이 마신 주민일수록 몸 색이 어두워짐</li>
+        <li><span class="dot" style="background: var(--smoke)"></span>연기 구역 통과 시 이동 속도 최대 75% 감소, 노출량 누적. 많이 마신 주민일수록 몸 색이 어두워짐</li>
       </ul>
       <p class="hint">드래그로 회전, 휠로 확대할 수 있습니다. 건물의 층을 클릭하면 그 층만 강조됩니다.</p>
     </div>
@@ -310,21 +310,21 @@ const smoke = { d: new Float32Array(NCELL), delta: new Float32Array(NCELL), edge
 (() => {
   const E = smoke.edges, sym = (a, b, c) => { E.push([a, b, c], [b, a, c]); };
   for (let f = 0; f < NF; f++) {
-    for (let s = 0; s < NSEG - 1; s++) sym(cellC(f, s), cellC(f, s + 1), 0.2);
-    sym(cellC(f, 0), cellS(-1, f), 0.5);
+    for (let s = 0; s < NSEG - 1; s++) sym(cellC(f, s), cellC(f, s + 1), 0.38);
+    sym(cellC(f, 0), cellS(-1, f), 0.8);
     sym(cellC(f, NSEG - 1), cellS(1, f), 0.5);
   }
   for (const side of [-1, 1]) for (let f = 0; f < NF - 1; f++) {
     E.push([cellS(side, f), cellS(side, f + 1), 0.95]);   // stack effect: up
-    E.push([cellS(side, f + 1), cellS(side, f), 0.3]);    // smoke banks down once the top fills
+    E.push([cellS(side, f + 1), cellS(side, f), 0.55]);   // smoke banks down once the top fills
   }
 })();
 function smokeStep(dt, t) {
   const d = smoke.d, dl = smoke.delta; dl.fill(0);
   if (t >= FIRE_T) {
-    const g = Math.min(1, (t - FIRE_T) / 6);
-    dl[cellC(FIRE_F, 0)] += 0.6 * g * (1 - d[cellC(FIRE_F, 0)]);
-    dl[cellC(FIRE_F, 1)] += 0.22 * g * (1 - d[cellC(FIRE_F, 1)]);
+    const g = Math.min(1, (t - FIRE_T) / 4);
+    dl[cellC(FIRE_F, 0)] += 1.6 * g * (1 - d[cellC(FIRE_F, 0)]);
+    dl[cellC(FIRE_F, 1)] += 0.8 * g * (1 - d[cellC(FIRE_F, 1)]);
   }
   for (const [a, b, c] of smoke.edges) { const fl = c * d[a] * (1 - d[b]); dl[a] -= fl; dl[b] += fl; }
   for (let i = 0; i < NCELL; i++) d[i] = Math.min(1, Math.max(0, d[i] + (dl[i] - 0.004 * d[i]) * dt));
@@ -572,8 +572,8 @@ function makeBuilding(mode) {
   // Smoke particles
   const parts = []; const RS = rng(23);
   for (let c = 0; c < NCELL; c++) {
-    const n = c < NC ? 26 : 40;
-    for (let i = 0; i < n; i++) parts.push({ c, bx: RS(), bz: RS(), r: RS(), ph: RS() * 6.28, sz: 1.6 + RS() * 1.6 });
+    const n = c < NC ? 44 : 64;
+    for (let i = 0; i < n; i++) parts.push({ c, bx: RS(), bz: RS(), r: RS(), ph: RS() * 6.28, sz: 2.0 + RS() * 2.2 });
   }
   const NP = parts.length;
   const sPos = new Float32Array(NP * 3), sA = new Float32Array(NP), sS = new Float32Array(NP), sF = new Float32Array(NP);
@@ -724,7 +724,7 @@ function stepResident(B, r, dt) {
   }
   const dens = densityAt(r.pos);
   r.exposure += dens * dt;
-  let v = r.T.speed * (1 - 0.6 * dens);
+  let v = r.T.speed * (1 - 0.75 * dens);
   if (r.state === 'stair') v *= 0.8;
   const dist = v * dt;
   r.bob += dist * 7;
@@ -825,9 +825,9 @@ function animate(dtR) {
         const f = Math.floor(p.c / NSEG), s = p.c % NSEG;
         x = -CX + (s + p.bx) * SEGW + Math.sin(vt * 0.35 + p.ph) * 0.45;
         z = -2.8 + p.bz * 4.6;
-        const depth = p.r * (0.25 + 2.5 * d);
+        const depth = p.r * (0.3 + 2.9 * d);
         y = f * H + H - 0.3 - depth + Math.sin(vt * 0.5 + p.ph) * 0.08;
-        a = Math.max(0, Math.min(1, d * 1.7 - p.r * 0.35)) * 0.42;
+        a = Math.max(0, Math.min(1, d * 2.2 - p.r * 0.3)) * 0.72;
       } else {
         const side = p.c < NC + NF ? -1 : 1, f = (p.c - NC) % NF;
         x = side * (10.2 + p.bx * 2.6);
@@ -835,7 +835,7 @@ function animate(dtR) {
         const yMin = f === 0 ? 0.2 : f * H - H / 2, yMax = f === NF - 1 ? f * H + H - 0.3 : f * H + H / 2;
         const fr = (p.r + vt * 0.07 * (0.6 + d)) % 1;
         y = yMin + fr * (yMax - yMin);
-        a = d * 0.5 * Math.sin(fr * Math.PI);
+        a = Math.min(1, d * 1.4) * 0.8 * Math.sin(fr * Math.PI);
       }
       sp[i * 3] = x; sp[i * 3 + 1] = y; sp[i * 3 + 2] = z; sa[i] = a;
     });
