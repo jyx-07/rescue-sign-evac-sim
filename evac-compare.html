@@ -1014,7 +1014,7 @@ $('btnView').addEventListener('click', () => Object.assign(cam, CAM_DEFAULT));
    서보 0 = 1층 왼쪽, 1 = 1층 오른쪽, 2 = 2층 왼쪽, 3 = 2층 오른쪽.
    왼쪽 표지판은 복도 왼쪽 구간(1번), 오른쪽 표지판은 오른쪽 구간(6번)의 안내 방향을 따른다. */
 const SERVO_SIGNS = [[0, 1], [0, 6], [1, 1], [1, 6]];   // [층, 복도 구간]
-const serial = { port: null, writer: null, sent: [], busy: false };
+const serial = { port: null, writer: null, sent: [], busy: false, manualOff: false };
 function setSerialUi(state, text) { $('btnSerial').dataset.state = state; $('serialLabel').textContent = text; }
 async function serialWrite(line) {
   if (!serial.writer) return;
@@ -1034,22 +1034,43 @@ async function disconnectSerial(text) {
   try { if (writer) { writer.releaseLock(); } if (port) await port.close(); } catch (err) { /* already closed */ }
   setSerialUi(text ? 'error' : '', text || '아두이노 연결');
 }
-$('btnSerial').addEventListener('click', async () => {
-  if (serial.busy) return;
-  if (serial.port) { disconnectSerial(); return; }
-  if (!('serial' in navigator)) { setSerialUi('error', '크롬·엣지에서 로컬 파일로 열어 주세요'); return; }
+async function openPort(port) {
+  if (serial.busy || serial.port) return false;
   serial.busy = true;
   try {
-    const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });
     serial.port = port; serial.writer = port.writable.getWriter();
     setSerialUi('on', '아두이노 연결됨 · 끊기');
     setTimeout(() => syncServos(true), 1800);   // 우노는 포트를 열면 재부팅되므로 잠시 기다린다
+    return true;
   } catch (err) {
-    setSerialUi(err && err.name === 'NotFoundError' ? '' : 'error', err && err.name === 'NotFoundError' ? '아두이노 연결' : '연결 실패 · 다시 시도');
+    setSerialUi('error', '연결 실패 · 다시 시도');
+    return false;
   } finally { serial.busy = false; }
+}
+// 이 브라우저에서 한 번 허용한 아두이노가 있으면 페이지를 열자마자 자동으로 연결한다
+async function autoConnect() {
+  if (!('serial' in navigator) || serial.port || serial.manualOff) return;
+  try {
+    const ports = await navigator.serial.getPorts();
+    if (ports.length) { setSerialUi('', '아두이노 자동 연결 중…'); await openPort(ports[0]); }
+  } catch (err) { /* 권한이 없으면 버튼으로 연결 */ }
+}
+$('btnSerial').addEventListener('click', async () => {
+  if (serial.busy) return;
+  if (serial.port) { serial.manualOff = true; disconnectSerial(); return; }
+  if (!('serial' in navigator)) { setSerialUi('error', '크롬·엣지에서 열어 주세요'); return; }
+  serial.manualOff = false;
+  let port;
+  try { port = await navigator.serial.requestPort(); }
+  catch (err) { setSerialUi(err && err.name === 'NotFoundError' ? '' : 'error', err && err.name === 'NotFoundError' ? '아두이노 연결' : '연결 실패 · 다시 시도'); return; }
+  openPort(port);
 });
-if ('serial' in navigator) navigator.serial.addEventListener('disconnect', e => { if (e.target === serial.port) disconnectSerial('연결 끊김 · 다시 연결'); });
+if ('serial' in navigator) {
+  navigator.serial.addEventListener('disconnect', e => { if (e.target === serial.port) disconnectSerial('연결 끊김 · 다시 꽂으면 자동 연결'); });
+  navigator.serial.addEventListener('connect', () => autoConnect());   // USB를 다시 꽂으면 자동 재연결
+  autoConnect();
+}
 
 /* ---------------- Pointer: orbit, zoom, floor pick ---------------- */
 const pointers = new Map(); let downAt = null, moved = 0, pinch0 = 0, zoom0 = 1;
