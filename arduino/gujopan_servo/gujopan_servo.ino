@@ -1,4 +1,4 @@
-// 구조판 표지판 서보 + 초음파 센서 + 외벽 LED (아두이노 우노)
+// 구조판 표지판 서보 + 초음파 센서 + 외벽 LED + 가스 센서 (아두이노 우노)
 //
 // 시뮬레이션 페이지(evac-compare.html)와 USB 시리얼(115200bps)로 주고받는다.
 //
@@ -13,11 +13,15 @@
 //   "U,<센서번호>,<0|1>"  초음파 센서가 사람을 감지하면 1, 사라지면 0.
 //     센서 0 = 202호    센서 1 = 204호
 //   페이지는 이 값을 받아 그 방에 사람이 있다고 보고, 사다리차를 그 방으로 보낸다.
+//   "G,<값>"  가스 센서 값(0~1023). 화면에 표시만 한다.
+//   "FIRE"    가스 값이 기준을 넘으면 한 번 보낸다. 페이지는 이 신호를 받으면 화재를 시작한다.
+//   (팀에서 만든 가스 센서 코드를 따로 쓴다면, 화재로 판단할 때 Serial.println("FIRE"); 한 줄만 보내면 된다.)
 //
 // 배선
 //   서보 신호선: 3, 5, 6, 9번 핀
 //   초음파 센서(HC-SR04) 0: TRIG 7, ECHO 8     센서 1: TRIG 10, ECHO 11   (VCC 5V, GND)
 //   외벽 LED 0: A0, LED 1: A1   (각각 220Ω 저항을 거쳐 GND로)
+//   가스 센서(MQ-2 등) 아날로그 출력: A2   (VCC 5V, GND)
 //   서보 4개를 USB 5V로 돌리면 전류가 모자라 보드가 재부팅될 수 있다.
 //   서보 전원(빨강)은 외부 5V에 연결하고, 외부 전원 GND와 아두이노 GND를 꼭 이어 준다.
 
@@ -46,6 +50,13 @@ const int ABSENT_CM  = 40;
 const int CONFIRM = 3;
 const unsigned long SONAR_MS = 60;   // 센서 하나를 읽는 간격
 
+// ---------- 가스 센서 ----------
+const int GAS_PIN = A2;
+const int GAS_THRESHOLD = 400;          // 이 값 이상이면 화재로 본다. 센서와 환경에 맞춰 조정한다.
+const unsigned long GAS_WARMUP_MS = 20000;  // MQ 센서는 켜고 나서 한동안 값이 높게 나오므로 이 시간 동안은 화재 판단을 하지 않는다
+const unsigned long GAS_MS = 300;       // 가스 값을 보내는 간격
+const unsigned long FIRE_REARM_MS = 15000;  // 값이 기준 아래로 내려가고 이 시간이 지나면 다시 FIRE를 보낼 수 있다
+
 Servo servos[SERVO_COUNT];
 int current[SERVO_COUNT];
 int target[SERVO_COUNT];
@@ -55,6 +66,10 @@ bool present[SONAR_COUNT];
 int streak[SONAR_COUNT];
 int sonarTurn = 0;
 unsigned long lastSonar = 0;
+
+unsigned long lastGas = 0;
+bool fireSent = false;
+unsigned long belowSince = 0;
 
 char line[24];
 int lineLen = 0;
@@ -138,6 +153,23 @@ void loop() {
       }
     } else if (lineLen < (int)sizeof(line) - 1) {
       line[lineLen++] = c;
+    }
+  }
+
+  // 가스 센서: 값은 계속 보내고, 기준을 넘으면 FIRE를 한 번 보낸다
+  if (millis() - lastGas >= GAS_MS) {
+    lastGas = millis();
+    int gas = analogRead(GAS_PIN);
+    Serial.print("G,");
+    Serial.println(gas);
+    if (millis() > GAS_WARMUP_MS) {
+      if (gas >= GAS_THRESHOLD) {
+        belowSince = 0;
+        if (!fireSent) { Serial.println("FIRE"); fireSent = true; }
+      } else if (fireSent) {
+        if (belowSince == 0) belowSince = millis();
+        if (millis() - belowSince > FIRE_REARM_MS) fireSent = false;
+      }
     }
   }
 

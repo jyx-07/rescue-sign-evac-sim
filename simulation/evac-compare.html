@@ -17,6 +17,7 @@
   --a: #6a7681;
   --b: #0c7b6d;
   --fire: #e2462c;
+  --warn: #e98a00;
   --exit: #14a058;
   --rescue: #1f6fe5;
   --truck: #d33a2c;
@@ -45,7 +46,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0d1215; --surface: #151c21; --ink: #e5ecf1; --muted: #93a1ac; --line: #26313a;
-    --hud: rgba(18, 25, 30, 0.86); --a: #8f9ba6; --b: #2bb39f; --fire: #ff6a4a; --exit: #22c06d; --rescue: #4a95ff;
+    --hud: rgba(18, 25, 30, 0.86); --a: #8f9ba6; --b: #2bb39f; --fire: #ff6a4a; --warn: #ffa733; --exit: #22c06d; --rescue: #4a95ff;
     --scene: #10171c; --m-slab: #2a343c; --m-wall: #252f37; --m-floor: #1f282f; --m-stair: #2e3941;
     --m-edge: #627380; --m-glass: #3d6779; --m-ground: #141c22; --smoke: #a5aeb6; --label: #a9b6c0;
     color-scheme: dark;
@@ -53,13 +54,14 @@
 }
 :root[data-theme="dark"] {
   --bg: #0d1215; --surface: #151c21; --ink: #e5ecf1; --muted: #93a1ac; --line: #26313a;
-  --hud: rgba(18, 25, 30, 0.86); --a: #8f9ba6; --b: #2bb39f; --fire: #ff6a4a; --exit: #22c06d; --rescue: #4a95ff;
+  --hud: rgba(18, 25, 30, 0.86); --a: #8f9ba6; --b: #2bb39f; --fire: #ff6a4a; --warn: #ffa733; --exit: #22c06d; --rescue: #4a95ff;
   --scene: #10171c; --m-slab: #2a343c; --m-wall: #252f37; --m-floor: #1f282f; --m-stair: #2e3941;
   --m-edge: #627380; --m-glass: #3d6779; --m-ground: #141c22; --smoke: #a5aeb6; --label: #a9b6c0;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { background: var(--bg); color: var(--ink); }
 body { font-family: var(--f-sans); font-size: 15px; line-height: 1.55; }
 .page {
@@ -96,6 +98,12 @@ h1 em { font-style: normal; color: var(--b); }
 .vp-status[data-state="alarm"] { border-color: var(--fire); color: var(--fire); }
 .vp-status[data-state="switch"] { border-color: var(--b); color: var(--b); }
 .vp-status[data-state="done"] { border-color: var(--exit); color: var(--exit); }
+.vp-ai { display: grid; gap: 3px; padding: 7px 9px; border-radius: 8px; background: var(--hud); border: 1px solid var(--line); font-size: 12px; min-width: 0; }
+.vp-ai .ai-src { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.vp-ai .ai-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.risk { font-family: var(--f-mono); font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 4px; color: var(--surface); background: var(--exit); }
+.risk[data-level="1"] { background: var(--warn); }
+.risk[data-level="2"] { background: var(--fire); }
 
 /* ---------- HUD ---------- */
 .hud {
@@ -180,10 +188,10 @@ h1 em { font-style: normal; color: var(--b); }
 <div class="page">
   <header class="intro">
     <div>
-      <p class="eyebrow">화재 대피 비교 시뮬레이션 · 2층 공동주택</p>
+      <p class="eyebrow">화재 대피 비교 시뮬레이션 · 2층 아파트</p>
       <h1>같은 불, <em>다른 길</em></h1>
     </div>
-    <p class="lead">2층 왼쪽 세대에서 불이 나고, 연기는 2층 복도를 채우고 왼쪽 계단을 따라 1층까지 내려옵니다. <strong>A 건물</strong>의 표지판은 가까운 계단만 가리킵니다. <strong>B 건물</strong>의 구조판은 센서가 연기를 감지하면 화살표를 돌려 연기가 없는 계단으로 안내합니다. 계단으로 내려오지 못한 2층 주민 2명은 사다리차가 구조하는데, B 건물은 초음파 센서와 외벽 LED로 사람이 남은 방을 알려 줍니다. 두 건물 주민 구성과 출발 시각은 똑같습니다.</p>
+    <p class="lead">같은 아파트 두 동에서 같은 위치에 불이 납니다. 아래 "발화 위치"에서 상황을 고를 수 있습니다. <strong>A 동</strong>의 표지판은 가까운 계단만 가리킵니다. <strong>B 동</strong>의 구조판은 가스·연기 센서 값을 AI가 분석해 위험도를 초록·주황·빨강으로 판단하고, 화살표를 돌려 연기가 없는 계단으로 안내합니다. 계단으로 내려오지 못한 2층 주민 2명은 사다리차가 구조하는데, B 동은 초음파 센서와 외벽 LED로 사람이 남아 있을 가능성이 있는 집을 알려 줍니다. 두 동의 주민 구성과 출발 시각은 똑같습니다.</p>
   </header>
 
   <section class="stage" aria-label="대피 시뮬레이션">
@@ -199,6 +207,7 @@ h1 em { font-style: normal; color: var(--b); }
         <div class="vp-title"><span class="badge">B</span>구조판 적용</div>
         <div class="vp-sub">센서 감지 후 표지판 방향 전환</div>
         <div class="vp-status" id="statusB">평상시</div>
+        <div class="vp-ai" id="aiPanel"><div class="ai-src" id="aiSrc">AI 준비 중</div><div class="ai-row" id="aiF2"></div><div class="ai-row" id="aiF1"></div></div>
       </div>
     </div>
 
@@ -236,6 +245,16 @@ h1 em { font-style: normal; color: var(--b); }
             <button type="button" data-speed="6" aria-pressed="false">6×</button>
           </div>
         </div>
+        <div class="grp">
+          <span class="m-label">발화 위치</span>
+          <div class="seg" role="group" aria-label="발화 위치" id="scnSeg">
+            <button type="button" data-scn="2L" aria-pressed="true">2층 왼쪽</button>
+            <button type="button" data-scn="2R" aria-pressed="false">2층 오른쪽</button>
+            <button type="button" data-scn="1L" aria-pressed="false">1층 왼쪽</button>
+            <button type="button" data-scn="1R" aria-pressed="false">1층 오른쪽</button>
+          </div>
+          <button class="btn" id="btnIgnite" type="button" hidden>지금 발화</button>
+        </div>
         <div class="clock" id="clock">00:00<small>시뮬레이션</small></div>
         <div class="grp right">
           <div class="seg" role="group" aria-label="층 강조" id="floorSeg">
@@ -256,11 +275,12 @@ h1 em { font-style: normal; color: var(--b); }
       <ul class="legend" id="legend"></ul>
       <ul class="keys">
         <li><span class="dot" style="background: var(--exit)"></span>초록 표지판 · 화살표가 가리키는 계단으로 이동</li>
-        <li><span class="dot" style="background: var(--fire)"></span>빨간 표지판 · 연기가 찬 계단, 진입 금지 (B 건물만)</li>
-        <li><span class="dot" style="background: var(--fire)"></span>깜빡이는 센서 · 연기 감지. 두 건물 모두 감지하지만 표지판과 연동되는 건 B뿐</li>
+        <li><span class="dot" style="background: var(--fire)"></span>빨간 표지판 · 연기가 찬 계단, 진입 금지 (B 동만)</li>
+        <li><span class="dot" style="background: var(--warn)"></span>센서 색 · 초록 정상, 주황 주의(경보 발령), 빨강 위험(깜빡임). 두 동 모두 감지하지만 표지판과 연동되는 건 B뿐</li>
+        <li><span class="dot" style="background: var(--b)"></span>AI 판단 · B 동 화살표는 AI가 구간마다 "어느 계단이 더 안전한지" 확률로 판단해 정함 (오른쪽 위 패널)</li>
         <li><span class="dot" style="background: var(--smoke)"></span>연기 구역 통과 시 이동 속도 최대 75% 감소, 노출량 누적. 많이 마신 주민일수록 몸 색이 어두워짐</li>
-        <li><span class="dot" style="background: var(--rescue)"></span>파란 LED · 방 안 초음파 센서가 남은 사람을 감지하면 외벽에서 깜빡임. 사다리차가 이 LED를 보고 바로 그 방으로 이동 (B 건물만)</li>
-        <li><span class="dot" style="background: var(--truck)"></span>사다리차 · 경보 12초 뒤 도착. A 건물에서는 사람 위치를 몰라 끝 방부터 창문을 하나씩 확인</li>
+        <li><span class="dot" style="background: var(--rescue)"></span>파란 LED · 방 안 초음파 센서가 남은 사람을 감지하면 외벽에서 깜빡임. 사다리차가 이 LED를 보고 바로 그 방으로 이동 (B 동만)</li>
+        <li><span class="dot" style="background: var(--truck)"></span>사다리차 · 경보 12초 뒤 도착. A 동에서는 사람 위치를 몰라 끝 방부터 창문을 하나씩 확인</li>
       </ul>
       <p class="hint">드래그로 회전, 휠로 확대할 수 있습니다. 건물의 층을 클릭하면 그 층만 강조됩니다.</p>
     </div>
@@ -284,7 +304,12 @@ const H = 3.2, NF = 2, CX = 10, XE = 13;
 const ZB = -3, ZF = 2, ZP = -1;           // back wall, open front, room partition
 const NSEG = 8, SEGW = 2.5;
 const INNER = 10.75, OUTER = 12.25;        // stair half-lane centres (abs x)
-const FIRE_T = 2, FIRE_X = -8, FIRE_Z = -2, FIRE_F = 1;
+const FIRE_DELAY = 2, FIRE_Z = -2;
+// 발화 위치(상황). 버튼으로 바꾸면 처음부터 다시 재생한다.
+const SCENARIOS = { '2L': { f: 1, side: -1 }, '2R': { f: 1, side: 1 }, '1L': { f: 0, side: -1 }, '1R': { f: 0, side: 1 } };
+const scn = { key: '2L', f: 1, side: -1 };
+const fireX = () => scn.side * 8, fireRoom = () => (scn.side < 0 ? 0 : 4);
+const sideName = sd => (sd < 0 ? '왼쪽' : '오른쪽');
 const RESCUE_F = 1;                  // 사다리차가 구조하는 층 (2층)
 const TRAPPED_ROOMS = [1, 3];        // 계단으로 못 내려오는 주민이 남는 방 (202호, 204호)
 const TRUCK_DELAY = 12;              // 경보 후 사다리차 도착까지 걸리는 시간(초)
@@ -292,7 +317,10 @@ const TRUCK_Z = 5.4;
 const PIVOT = new V3(1.6, 1.85, 0);  // 사다리 회전축 (트럭 기준)
 const roomX = i => -8 + 4 * i;
 const roomName = (f, i) => `${f + 1}0${i + 1}호`;
-const SENSOR_TH = 0.06;
+const SENSOR_TH = 0.06;          // 이 농도부터 '주의'(주황)
+const DANGER_TH = 0.3;           // 이 농도부터 '위험'(빨강)
+const riskLevel = d => (d >= DANGER_TH ? 2 : d >= SENSOR_TH ? 1 : 0);
+const RISK_NAME = ['정상', '주의', '위험'];
 const segX = s => -CX + SEGW * (s + 0.5);
 const cellC = (f, s) => f * NSEG + s;
 const NC = NF * NSEG;
@@ -314,7 +342,6 @@ const SPECS = (() => {
   const R = rng(7), pool = ['adult', 'adult', 'child', 'elder', 'adult', 'mobility', 'child', 'elder', 'adult', 'adult'];
   const out = []; let k = 0;
   for (let f = 0; f < NF; f++) for (let room = 0; room < 5; room++) {
-    if (f === FIRE_F && room === 0) continue;
     for (let i = 0; i < 2; i++) {
       const type = pool[(k++ * 3 + f) % pool.length];
       const extra = type === 'mobility' ? 2 : type === 'elder' ? 1 : 0;
@@ -342,10 +369,11 @@ const smoke = { d: new Float32Array(NCELL), delta: new Float32Array(NCELL), edge
 })();
 function smokeStep(dt, t) {
   const d = smoke.d, dl = smoke.delta; dl.fill(0);
-  if (t >= FIRE_T) {
-    const g = Math.min(1, (t - FIRE_T) / 4);
-    dl[cellC(FIRE_F, 0)] += 1.6 * g * (1 - d[cellC(FIRE_F, 0)]);
-    dl[cellC(FIRE_F, 1)] += 0.8 * g * (1 - d[cellC(FIRE_F, 1)]);
+  if (sim.fireT !== null && t >= sim.fireT) {
+    const g = Math.min(1, (t - sim.fireT) / 4);
+    const c0 = cellC(scn.f, scn.side < 0 ? 0 : NSEG - 1), c1 = cellC(scn.f, scn.side < 0 ? 1 : NSEG - 2);
+    dl[c0] += 1.6 * g * (1 - d[c0]);
+    dl[c1] += 0.8 * g * (1 - d[c1]);
   }
   for (const [a, b, c] of smoke.edges) { const fl = c * d[a] * (1 - d[b]); dl[a] -= fl; dl[b] += fl; }
   for (let i = 0; i < NCELL; i++) d[i] = Math.min(1, Math.max(0, d[i] + (dl[i] - 0.004 * d[i]) * dt));
@@ -361,7 +389,7 @@ function densityAt(p) {
 
 /* ---------------- Sim state ---------------- */
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const sim = { t: 0, vt: 0, alarmT: null, playing: !reduceMotion, speed: 3, finished: false, finishedAt: 0, focus: -1, flags: {} };
+const sim = { t: 0, vt: 0, alarmT: null, fireT: FIRE_DELAY, gasMode: false, playing: !reduceMotion, speed: 3, finished: false, finishedAt: 0, focus: -1, flags: {} };
 
 /* ---------------- Renderer + camera ---------------- */
 const canvas = document.getElementById('c');
@@ -567,7 +595,7 @@ function makeBuilding(mode) {
   }
 
   // Fire
-  const fire = new THREE.Group(); fire.position.set(FIRE_X, FIRE_F * H, FIRE_Z); S.add(fire);
+  const fire = new THREE.Group(); fire.position.set(fireX(), scn.f * H, FIRE_Z); S.add(fire);
   const fireMats = [];
   const decalM = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false }); themedColor(decalM, '--fire');
   const decal = new THREE.Mesh(new THREE.CircleGeometry(1.4, 24), decalM); decal.rotation.x = -Math.PI / 2; decal.position.y = 0.02; fire.add(decal);
@@ -576,8 +604,8 @@ function makeBuilding(mode) {
   const glowM = new THREE.SpriteMaterial({ map: haloTex, color: 0xff5a1f, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const glow = new THREE.Sprite(glowM); glow.scale.set(4.5, 4.5, 1); glow.position.y = 0.9; fire.add(glow);
   const light = new THREE.PointLight(0xff5a1f, 0, 11, 2); light.position.y = 1.2; fire.add(light);
-  [decalM, coreM, glowM].forEach(m => { regMat(m, FIRE_F); fireMats.push(m); });
-  const NFL = 46, flPos = new Float32Array(NFL * 3), flA = new Float32Array(NFL), flS = new Float32Array(NFL), flF = new Float32Array(NFL).fill(FIRE_F);
+  [decalM, coreM, glowM].forEach(m => { regMat(m, scn.f); fireMats.push(m); });
+  const NFL = 46, flPos = new Float32Array(NFL * 3), flA = new Float32Array(NFL), flS = new Float32Array(NFL), flF = new Float32Array(NFL).fill(scn.f);
   const flSeed = []; const R = rng(11);
   for (let i = 0; i < NFL; i++) { flSeed.push({ x: (R() - 0.5) * 1.6, z: (R() - 0.5) * 1.2, ph: R(), sp: 0.6 + R() * 0.8 }); flS[i] = 0.6 + R() * 0.7; }
   const flGeo = new THREE.BufferGeometry();
@@ -588,7 +616,6 @@ function makeBuilding(mode) {
   const flMat = pointsMaterial(0xffa040, true);
   const flames = new THREE.Points(flGeo, flMat); flames.frustumCulled = false; S.add(flames);
   B.fire = { group: fire, core, glow, light, decal, flames, flSeed, flGeo, flMat, mats: fireMats };
-  fire.position.y = FIRE_F * H;
 
   // Smoke particles
   const parts = []; const RS = rng(23);
@@ -818,7 +845,96 @@ function resetResident(B, r) {
   r.state = 'idle'; r.path = []; r.side = 0; r.exposure = 0; r.evac = false; r.evacT = 0; r.f = sp.f;
   r.m.color.copy(r.base);
   r.g.position.copy(r.pos);
+  // 불이 난 집 주민은 집에 없었던 것으로 둔다
+  r.active = sp.trapped || !(sp.f === scn.f && sp.room === fireRoom());
+  r.g.visible = r.active;
+  if (!r.active) { r.evac = true; r.state = 'done'; }
 }
+
+/* ---------------- AI: 경로 위험도 판단 ----------------
+   입력 6개: 왼쪽/오른쪽 계단까지 거리, 왼쪽/오른쪽 복도 경로의 연기량, 왼쪽/오른쪽 계단의 연기량.
+   출력: "오른쪽 계단이 더 안전할 확률".
+   기본은 페이지 안의 작은 신경망(6-12-1)이다. 시뮬레이터로 만든 상황 4,000개로 페이지를 열 때 학습한다.
+   ai/ 폴더의 AI 서버가 http://localhost:8000 에서 돌고 있으면 그 판단을 대신 쓴다 (없으면 신경망으로 자동 전환). */
+const AI = (() => {
+  const NI = 6, NH = 12, R = rng(2024);
+  const W1 = Array.from({ length: NH }, () => Array.from({ length: NI }, () => (R() - 0.5) * 0.8));
+  const b1 = new Array(NH).fill(0), W2 = Array.from({ length: NH }, () => (R() - 0.5) * 0.8);
+  let b2 = 0;
+  const hid = new Array(NH);
+  function forward(x) {
+    let z = b2;
+    for (let j = 0; j < NH; j++) { let a = b1[j]; for (let i = 0; i < NI; i++) a += W1[j][i] * x[i]; hid[j] = Math.tanh(a); z += W2[j] * hid[j]; }
+    return 1 / (1 + Math.exp(-z));
+  }
+  // 정답: 거리 + 60 × 연기량으로 계산한 경로 비용이 더 낮은 쪽 (시뮬레이터 기준)
+  const label = x => {
+    const cost = (dist, corr, stair) => dist * 20 + 60 * (corr * NSEG * SEGW / 4 + stair * NF * 7 / 4);
+    return cost(x[1], x[3], x[5]) < cost(x[0], x[2], x[4]) ? 1 : 0;
+  };
+  function sample() {
+    const sg = Math.floor(R() * NSEG), xPos = segX(sg);
+    const v = () => (R() < 0.35 ? 0 : R() * R()) * 4;
+    return [(xPos + CX) / 20, (CX - xPos) / 20, v(), v(), v(), v()];
+  }
+  const t0 = performance.now();
+  const train = Array.from({ length: 4000 }, sample), test = Array.from({ length: 1000 }, sample);
+  const ty = train.map(label);
+  for (let ep = 0; ep < 70; ep++) {
+    const lr = 0.08 * (1 - ep / 80);
+    for (let n = 0; n < train.length; n++) {
+      const x = train[n], y = ty[n], out = forward(x), g = out - y;
+      for (let j = 0; j < NH; j++) {
+        const gh = g * W2[j] * (1 - hid[j] * hid[j]);
+        W2[j] -= lr * g * hid[j];
+        for (let i = 0; i < NI; i++) W1[j][i] -= lr * gh * x[i];
+        b1[j] -= lr * gh;
+      }
+      b2 -= lr * g;
+    }
+  }
+  const acc = test.filter(x => (forward(x) > 0.5 ? 1 : 0) === label(x)).length / test.length;
+  const trainMs = performance.now() - t0;
+  function features(f, sg) {
+    const d = smoke.d, xPos = segX(sg);
+    let cl = 0, cr = 0, sl = 0, sr = 0;
+    for (let k = sg; k >= 0; k--) cl += d[cellC(f, k)];
+    for (let k = sg; k < NSEG; k++) cr += d[cellC(f, k)];
+    for (let k = f; k >= 0; k--) { sl += d[cellS(-1, k)]; sr += d[cellS(1, k)]; }
+    return [(xPos + CX) / 20, (CX - xPos) / 20, cl / NSEG * 4, cr / NSEG * 4, sl / NF * 4, sr / NF * 4];
+  }
+  // 외부 AI 서버 (ai/ 폴더). 0.5초마다 모든 구간을 한 번에 물어본다.
+  const remote = { url: 'http://localhost:8000', ok: false, probs: null, name: '', busy: false, last: 0 };
+  async function probeRemote() {
+    try {
+      const res = await fetch(remote.url + '/health', { cache: 'no-store' });
+      const j = await res.json();
+      remote.ok = j && j.ok === true; remote.name = j.name || '외부 AI 서버';
+    } catch (err) { remote.ok = false; }
+  }
+  async function askRemote() {
+    if (!remote.ok || remote.busy || performance.now() - remote.last < 500) return;
+    remote.busy = true; remote.last = performance.now();
+    const items = [];
+    for (let f = 0; f < NF; f++) for (let sg = 0; sg < NSEG; sg++) items.push({ floor: f, segment: sg, features: features(f, sg) });
+    try {
+      const res = await fetch(remote.url + '/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
+      const j = await res.json();
+      if (Array.isArray(j.p_right) && j.p_right.length === items.length) remote.probs = j.p_right.map(Number);
+    } catch (err) { remote.ok = false; remote.probs = null; }
+    finally { remote.busy = false; }
+  }
+  if (location.protocol.startsWith('http')) probeRemote();
+  return {
+    acc, trainMs, remote,
+    predict(f, sg) {
+      if (remote.ok && remote.probs) return remote.probs[f * NSEG + sg];
+      return forward(features(f, sg));
+    },
+    tick() { askRemote(); },
+    source() { return remote.ok && remote.probs ? `AI · ${remote.name}` : `AI · 내장 신경망 (검증 정확도 ${(acc * 100).toFixed(1)}%)`; },
+  };
+})();
 
 /* ---------------- Routing ---------------- */
 function nearestField() { return Array.from({ length: NF }, () => Array.from({ length: NSEG }, (_, s) => s < NSEG / 2 ? -1 : 1)); }
@@ -832,11 +948,14 @@ function routeCost(f, s, side) {
 }
 function updateField(B) {
   if (B.mode !== 'rescue' || sim.alarmT === null) return;
+  AI.tick();
   for (let f = 0; f < NF; f++) {
     let changed = 0, to = 0;
     for (let s = 0; s < NSEG; s++) {
-      const cur = B.field[f][s], other = -cur;
-      if (routeCost(f, s, other) < routeCost(f, s, cur) - 1.5) {
+      const cur = B.field[f][s], other = -cur, p = AI.predict(f, s);
+      B.conf[f][s] = p;
+      // AI 확률이 반대쪽으로 65% 이상 기울어야 바꾼다 (화살표가 왔다 갔다 하지 않게)
+      if ((cur < 0 && p > 0.65) || (cur > 0 && p < 0.35)) {
         B.field[f][s] = other;
         if (B.signs.some(g => g.kind === 'corridor' && g.f === f && g.seg === s)) { changed++; to = other; }
       }
@@ -873,6 +992,7 @@ function moveAlong(r, dist) {
 }
 
 function stepResident(B, r, dt) {
+  if (!r.active) return;
   if (r.sp.trapped && r.state === 'idle') { r.exposure += densityAt(r.pos) * dt; return; }
   if (r.state === 'idle') {
     if (sim.alarmT !== null && sim.t >= sim.alarmT + r.sp.delay) {
@@ -922,17 +1042,26 @@ function logEvent(who, text) {
 const A = makeBuilding('normal');
 const Bld = makeBuilding('rescue');
 const buildings = [A, Bld];
-const N = SPECS.length;
-document.getElementById('totalN').textContent = `총 ${N}명`;
+let N = SPECS.length;
 const NT = TRAPPED_ROOMS.length;
 document.getElementById('rescueN').textContent = `2층 구조 대기 ${NT}명`;
 
+function placeFire(B) {
+  const F = B.fire;
+  F.group.position.set(fireX(), scn.f * H, FIRE_Z);
+  F.flGeo.attributes.aFloor.array.fill(scn.f); F.flGeo.attributes.aFloor.needsUpdate = true;
+  for (const list of B.floorMats) for (const m of F.mats) { const i = list.indexOf(m); if (i >= 0) list.splice(i, 1); }
+  B.floorMats[scn.f].push(...F.mats);
+}
 function resetSim() {
   sim.t = 0; sim.alarmT = null; sim.finished = false; sim.flags = {};
+  sim.gasMode = !!(typeof serial !== 'undefined' && serial.port);
+  sim.fireT = sim.gasMode ? null : FIRE_DELAY;   // 아두이노가 연결돼 있으면 가스 센서 신호를 기다린다
   smoke.d.fill(0);
   logEl.innerHTML = '<li class="empty">재생하면 발화, 감지, 표지판 전환 시각이 여기에 기록됩니다.</li>';
   for (const B of buildings) {
-    B.field = nearestField(); B.logged = []; B.slots = { '-1': 0, '1': 0 }; B.doneT = null; B.rslot = 0;
+    B.field = nearestField(); B.conf = nearestField().map(row => row.map(v => (v > 0 ? 1 : 0))); B.logged = []; B.slots = { '-1': 0, '1': 0 }; B.doneT = null; B.rslot = 0;
+    placeFire(B);
     resetTruck(B);
     for (const b of B.beacons) b.on = false;
     for (const u of B.usensors) u.on = false;
@@ -940,16 +1069,28 @@ function resetSim() {
     for (const s of B.signs) { s.target = s.angle = s.arrow.rotation.z = s.kind === 'corridor' ? (s.seg < 4 ? Math.PI : 0) : (s.side > 0 ? 0 : Math.PI); s.blocked = false; s.flash = 0; }
   }
   document.getElementById('verdict').hidden = true;
+  $('btnIgnite').hidden = !sim.gasMode;
+  N = A.residents.filter(r => r.active).length;
+  document.getElementById('totalN').textContent = `총 ${N}명`;
+  setFocus(sim.focus);
   updateHud(true);
+}
+function ignite(src) {
+  if (sim.fireT !== null) return;
+  sim.fireT = sim.t;
+  $('btnIgnite').hidden = true;
+  if (src) logEvent('f', src);
 }
 
 function stepSim(dt) {
+  if (sim.fireT === null) return;   // 가스 센서 신호를 기다리는 중: 시간을 멈춘다
   sim.t += dt;
   smokeStep(dt, sim.t);
   const F = sim.flags;
-  if (!F.fire && sim.t >= FIRE_T) { F.fire = 1; logEvent('f', '2층 왼쪽 세대 발화'); }
-  if (sim.alarmT === null && A.sensors.some(s => smoke.d[s.cell] > SENSOR_TH)) { sim.alarmT = sim.t; logEvent('all', '연기 감지기 작동 · 화재 경보 발령, 주민 대피 시작'); }
-  if (!F.stairL && smoke.d[cellS(-1, 0)] > 0.2) { F.stairL = 1; logEvent('f', '연기가 왼쪽 계단을 타고 1층까지 내려옴'); }
+  if (!F.fire && sim.t >= sim.fireT) { F.fire = 1; logEvent('f', `${scn.f + 1}0${fireRoom() + 1}호 (${scn.f + 1}층 ${sideName(scn.side)}) 발화`); }
+  if (sim.alarmT === null && A.sensors.some(s => smoke.d[s.cell] > SENSOR_TH)) { sim.alarmT = sim.t; logEvent('all', '가스·연기 센서 "주의" 단계 감지 · 화재 경보 발령, 주민 대피 시작'); }
+  const upF = scn.f === 0 ? 1 : 0;
+  if (!F.stairL && smoke.d[cellS(scn.side, upF)] > 0.2) { F.stairL = 1; logEvent('f', `연기가 ${sideName(scn.side)} 계단을 타고 ${upF + 1}층까지 ${upF > scn.f ? '올라감' : '내려옴'}`); }
   for (const B of buildings) {
     updateField(B);
     for (const r of B.residents) stepResident(B, r, dt);
@@ -970,7 +1111,7 @@ function animate(dtR) {
   const vt = sim.vt;
   for (const B of buildings) {
     // Fire
-    const on = sim.t >= FIRE_T, g = on ? Math.min(1, (sim.t - FIRE_T) / 3) : 0, fl = 0.75 + 0.25 * Math.sin(vt * 17) * Math.sin(vt * 7.3);
+    const on = sim.fireT !== null && sim.t >= sim.fireT, g = on ? Math.min(1, (sim.t - sim.fireT) / 3) : 0, fl = 0.75 + 0.25 * Math.sin(vt * 17) * Math.sin(vt * 7.3);
     const F = B.fire;
     F.group.visible = on;
     F.light.intensity = 3.2 * g * fl;
@@ -979,7 +1120,7 @@ function animate(dtR) {
     const fp = F.flGeo.attributes.position.array, fa = F.flGeo.attributes.aAlpha.array;
     F.flSeed.forEach((p, i) => {
       const life = (vt * p.sp * 0.9 + p.ph) % 1;
-      fp[i * 3] = FIRE_X + p.x * (1 - life * 0.6); fp[i * 3 + 1] = FIRE_F * H + 0.2 + life * 2.2; fp[i * 3 + 2] = FIRE_Z + p.z;
+      fp[i * 3] = fireX() + p.x * (1 - life * 0.6); fp[i * 3 + 1] = scn.f * H + 0.2 + life * 2.2; fp[i * 3 + 2] = FIRE_Z + p.z;
       fa[i] = on ? g * (1 - life) * 0.9 : 0;
     });
     F.flGeo.attributes.position.needsUpdate = true; F.flGeo.attributes.aAlpha.needsUpdate = true;
@@ -1011,9 +1152,9 @@ function animate(dtR) {
 
     // Sensors
     for (const s of B.sensors) {
-      const hit = smoke.d[s.cell] > SENSOR_TH;
-      if (hit !== s.on) { s.on = hit; const c = tok(hit ? '--fire' : '--exit'); s.ledM.color.set(c); s.haloM.color.set(c); }
-      const blink = hit ? (Math.sin(vt * 14) > 0 ? 1 : 0.25) : 0.55;
+      const lv = riskLevel(smoke.d[s.cell]), hit = lv > 0;
+      if (lv !== s.level) { s.level = lv; s.on = hit; const c = tok(['--exit', '--warn', '--fire'][lv]); s.ledM.color.set(c); s.haloM.color.set(c); }
+      const blink = lv === 2 ? (Math.sin(vt * 14) > 0 ? 1 : 0.25) : lv === 1 ? 0.65 + 0.35 * Math.sin(vt * 5) : 0.55;
       s.haloM.opacity = blink * s.haloM.userData.k; s.ledM.opacity = (hit ? 0.4 + 0.6 * blink : 1) * s.ledM.userData.k;
       s.halo.scale.setScalar(hit ? 1.25 : 0.6);
     }
@@ -1126,8 +1267,9 @@ function render() {
 const $ = id => document.getElementById(id);
 let hudTick = 0;
 function stats(B) {
-  const done = B.residents.filter(r => r.evac).length;
-  const exp = B.residents.reduce((a, r) => a + r.exposure, 0) / N;
+  const act = B.residents.filter(r => r.active);
+  const done = act.filter(r => r.evac).length;
+  const exp = act.reduce((a, r) => a + r.exposure, 0) / N;
   const time = B.doneT != null ? B.doneT : sim.t;
   return { done, exp, time };
 }
@@ -1156,20 +1298,36 @@ function updateHud(force) {
   const set = (el, st, txt) => { if (el.dataset.state !== st || el.textContent !== txt) { el.dataset.state = st; el.textContent = txt; } };
   if (A.doneT != null) set(sA, 'done', `전원 대피 · ${A.doneT.toFixed(1)}초`);
   else if (sim.alarmT !== null) set(sA, 'alarm', '경보 발령 · 표지판 그대로');
-  else set(sA, 'idle', sim.t >= FIRE_T ? '발화 · 감지 전' : '평상시');
+  else set(sA, 'idle', sim.fireT === null ? '가스 센서 대기 중' : sim.t >= sim.fireT ? '발화 · 감지 전' : '평상시');
   const turned = Bld.signs.filter(s => (s.kind === 'corridor' && Bld.field[s.f][s.seg] !== (s.seg < 4 ? -1 : 1)) || s.blocked).length;
   if (Bld.doneT != null) set(sB, 'done', `전원 대피 · ${Bld.doneT.toFixed(1)}초`);
   else if (turned) set(sB, 'switch', `표지판 ${turned}개 전환 · 우회 안내 중`);
   else if (sim.alarmT !== null) set(sB, 'alarm', '경보 발령 · 경로 계산 중');
-  else set(sB, 'idle', sim.t >= FIRE_T ? '발화 · 감지 전' : '평상시');
+  else set(sB, 'idle', sim.fireT === null ? `가스 센서 대기 중${serial.gas != null ? ` · 값 ${serial.gas}` : ''}` : sim.t >= sim.fireT ? '발화 · 감지 전' : '평상시');
+  // AI 판단 패널
+  $('aiSrc').textContent = AI.source();
+  for (let f = NF - 1; f >= 0; f--) {
+    const cells = [...Array(NSEG).keys()].map(k => cellC(f, k)).concat([cellS(-1, f), cellS(1, f)]);
+    const lv = riskLevel(Math.max(...cells.map(c => smoke.d[c])));
+    let txt;
+    if (sim.alarmT === null) txt = '대기 · 경보 전에는 기본 방향';
+    else {
+      const row = Bld.field[f], nR = row.filter(v => v > 0).length;
+      const conf = Bld.conf[f].reduce((a, p, k) => a + (row[k] > 0 ? p : 1 - p), 0) / NSEG;
+      const dir = nR === NSEG ? '전 구간 오른쪽 계단' : nR === 0 ? '전 구간 왼쪽 계단' : `왼쪽 ${NSEG - nR}구간 · 오른쪽 ${nR}구간`;
+      txt = `${dir} · 확신 ${(conf * 100).toFixed(0)}%`;
+    }
+    const el = $('aiF' + (f + 1)), html = `<span>${f + 1}층</span><span class="risk" data-level="${lv}">${RISK_NAME[lv]}</span><span>${txt}</span>`;
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
 }
 function showVerdict() {
   const a = stats(A), b = stats(Bld), v = $('verdict');
   const dt = a.time - b.time, de = a.exp > 0 ? (1 - b.exp / a.exp) * 100 : 0;
-  const tPart = Math.abs(dt) < 0.5 ? '전원 대피 시간은 <b>같았지만</b>' : `전원 대피가 <b>${Math.abs(dt).toFixed(1)}초 ${dt > 0 ? '빨랐고' : '늦었고'}</b>`;
+  const tPart = Math.abs(dt) < 0.5 ? '전원 대피 시간은 <b>같았고</b>' : dt > 0 ? `전원 대피가 <b>${dt.toFixed(1)}초 빨랐고</b>` : `연기를 피해 먼 계단으로 돌아가느라 전원 대피는 <b>${(-dt).toFixed(1)}초 더 걸렸지만</b>`;
   const rt = (A.truck.doneT ?? 0) - (Bld.truck.doneT ?? 0);
   const rPart = Math.abs(rt) < 0.5 ? '' : ` 사다리차 구조도 <b>${Math.abs(rt).toFixed(1)}초 ${rt > 0 ? '빨리' : '늦게'}</b> 끝났습니다.`;
-  v.innerHTML = `구조판 건물(B)은 ${tPart}, 주민 평균 연기 노출량은 <b>${de.toFixed(0)}% ${de >= 0 ? '낮았습니다' : '높았습니다'}</b>.${rPart} 잠시 후 처음부터 다시 재생합니다.`;
+  v.innerHTML = `구조판 동(B)은 ${tPart}, 주민 평균 연기 노출량은 <b>${de.toFixed(0)}% ${de >= 0 ? '낮았습니다' : '높았습니다'}</b>.${rPart} 잠시 후 처음부터 다시 재생합니다.`;
   v.hidden = false;
 }
 
@@ -1189,15 +1347,23 @@ $('speedSeg').addEventListener('click', e => {
 });
 $('floorSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setFocus(+b.dataset.floor); });
 $('btnView').addEventListener('click', () => Object.assign(cam, CAM_DEFAULT));
+$('scnSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  Object.assign(scn, SCENARIOS[b.dataset.scn], { key: b.dataset.scn });
+  document.querySelectorAll('#scnSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  resetSim(); sim.playing = true; syncPlay();
+});
+$('btnIgnite').addEventListener('click', () => ignite('수동 발화 (가스 센서 대신 버튼)'));
 
 /* ---------------- Arduino (Web Serial) ----------------
    B 건물(구조판) 표지판 방향을 USB 시리얼로 보낸다. 한 줄에 명령 하나: "S,<서보번호>,<L|R>\n"
    서보 0 = 1층 왼쪽, 1 = 1층 오른쪽, 2 = 2층 왼쪽, 3 = 2층 오른쪽.
    왼쪽 표지판은 복도 왼쪽 구간(1번), 오른쪽 표지판은 오른쪽 구간(6번)의 안내 방향을 따른다.
    외벽 LED: "L,<0|1>,<0|1>\n" (LED 0 = 202호, 1 = 204호). 페이지 화면의 LED와 같이 켜지고 꺼진다.
-   아두이노 → 페이지: 초음파 센서 "U,<0|1>,<0|1>\n". 1이면 그 방에 사람이 있는 것으로 보고 LED를 켠다. */
+   아두이노 → 페이지: 초음파 센서 "U,<0|1>,<0|1>\n". 1이면 그 방에 사람이 있는 것으로 보고 LED를 켠다.
+   아두이노 → 페이지: 가스 센서 "FIRE\n" 이 오면 불이 난다 (연결돼 있을 때만 기다림). "G,<값>\n"은 화면에 값만 보여 준다. */
 const SERVO_SIGNS = [[0, 1], [0, 6], [1, 1], [1, 6]];   // [층, 복도 구간]
-const serial = { port: null, writer: null, reader: null, sent: [], ledSent: [], hw: TRAPPED_ROOMS.map(() => false), busy: false, manualOff: false };
+const serial = { port: null, writer: null, reader: null, sent: [], ledSent: [], hw: TRAPPED_ROOMS.map(() => false), gas: null, busy: false, manualOff: false };
 function setSerialUi(state, text) { $('btnSerial').dataset.state = state; $('serialLabel').textContent = text; }
 async function serialWrite(line) {
   if (!serial.writer) return;
@@ -1225,8 +1391,11 @@ async function readLoop(port) {
       buf += dec.decode(value, { stream: true });
       let k;
       while ((k = buf.indexOf('\n')) >= 0) {
-        const m = /^U,(\d),([01])$/.exec(buf.slice(0, k).trim()); buf = buf.slice(k + 1);
+        const ln = buf.slice(0, k).trim(); buf = buf.slice(k + 1);
+        const m = /^U,(\d),([01])$/.exec(ln), g = /^G,(\d+)$/.exec(ln);
         if (m && +m[1] < serial.hw.length) serial.hw[+m[1]] = m[2] === '1';
+        else if (g) serial.gas = +g[1];
+        else if (ln === 'FIRE') ignite(`가스 센서 감지${serial.gas != null ? ` (값 ${serial.gas})` : ''} · 화재 발생`);
       }
     }
   } catch (err) { /* 포트가 닫힘 */ }
@@ -1238,6 +1407,7 @@ async function disconnectSerial(text) {
   try { if (reader) await reader.cancel(); } catch (err) { /* already closed */ }
   try { if (writer) { writer.releaseLock(); } if (port) await port.close(); } catch (err) { /* already closed */ }
   setSerialUi(text ? 'error' : '', text || '아두이노 연결');
+  if (sim.fireT === null) resetSim();   // 기다리던 중 끊기면 자동 재생으로 돌아간다
 }
 async function openPort(port) {
   if (serial.busy || serial.port) return false;
@@ -1247,6 +1417,7 @@ async function openPort(port) {
     serial.port = port; serial.writer = port.writable.getWriter();
     readLoop(port);
     setSerialUi('on', '아두이노 연결됨 · 끊기');
+    resetSim(); sim.playing = true; syncPlay();   // 가스 센서 신호를 기다리는 모드로 시작
     setTimeout(() => syncServos(true), 1800);   // 우노는 포트를 열면 재부팅되므로 잠시 기다린다
     return true;
   } catch (err) {
@@ -1333,7 +1504,7 @@ function applyTheme() {
   for (const B of buildings) {
     B.labels.forEach(l => l.userData.draw());
     for (const s of B.signs) { const c = tok(s.blocked ? '--fire' : '--exit'); s.panelM.color.set(c); s.haloM.color.set(c); }
-    for (const s of B.sensors) { const c = tok(s.on ? '--fire' : '--exit'); s.ledM.color.set(c); s.haloM.color.set(c); }
+    for (const s of B.sensors) { const c = tok(['--exit', '--warn', '--fire'][s.level || 0]); s.ledM.color.set(c); s.haloM.color.set(c); }
     for (const b of B.beacons) b.haloM.color.set(tok('--rescue'));
     for (const u of B.usensors) u.glowM.color.set(tok('--rescue'));
     for (const r of B.residents) r.base.set(tok(r.T.token));

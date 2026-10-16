@@ -3,10 +3,17 @@
 # 로컬 주소로 열어야 아두이노 허용 기록이 남아서, 다음부터 페이지를 켜자마자 자동 연결됩니다.
 cd "$(dirname "$0")"
 PORT=8765
-URL="http://localhost:$PORT/evac-compare.html"
+URL="http://localhost:$PORT/simulation/evac-compare.html"
 
 python3 -m http.server "$PORT" >/dev/null 2>&1 &
 SERVER=$!
+
+# 우리 AI 서버(ai/server.py)가 있으면 같이 띄운다. 없으면 페이지의 내장 신경망을 쓴다.
+if [ -f ai/server.py ]; then
+  python3 ai/server.py &
+  AI_SERVER=$!
+  trap 'kill $AI_SERVER 2>/dev/null' EXIT
+fi
 sleep 1
 
 if [ -d "/Applications/Google Chrome.app" ]; then
