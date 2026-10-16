@@ -175,10 +175,10 @@ h1 em { font-style: normal; color: var(--b); }
 <div class="page">
   <header class="intro">
     <div>
-      <p class="eyebrow">화재 대피 비교 시뮬레이션 · 3층 공동주택</p>
+      <p class="eyebrow">화재 대피 비교 시뮬레이션 · 2층 공동주택</p>
       <h1>같은 불, <em>다른 길</em></h1>
     </div>
-    <p class="lead">2층 왼쪽 세대에서 불이 나고, 연기는 왼쪽 계단을 타고 위층으로 올라갑니다. <strong>A 건물</strong>의 표지판은 가까운 계단만 가리킵니다. <strong>B 건물</strong>의 구조판은 센서가 연기를 감지하면 화살표를 돌려 연기가 없는 계단으로 안내합니다. 두 건물 주민 구성과 출발 시각은 똑같습니다.</p>
+    <p class="lead">2층 왼쪽 세대에서 불이 나고, 연기는 2층 복도를 채우고 왼쪽 계단을 따라 1층까지 내려옵니다. <strong>A 건물</strong>의 표지판은 가까운 계단만 가리킵니다. <strong>B 건물</strong>의 구조판은 센서가 연기를 감지하면 화살표를 돌려 연기가 없는 계단으로 안내합니다. 두 건물 주민 구성과 출발 시각은 똑같습니다.</p>
   </header>
 
   <section class="stage" aria-label="대피 시뮬레이션">
@@ -232,7 +232,6 @@ h1 em { font-style: normal; color: var(--b); }
             <button type="button" data-floor="-1" aria-pressed="true">전체</button>
             <button type="button" data-floor="0" aria-pressed="false">1F</button>
             <button type="button" data-floor="1" aria-pressed="false">2F</button>
-            <button type="button" data-floor="2" aria-pressed="false">3F</button>
           </div>
           <button class="btn" id="btnView" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 1.5 4.5v7L8 15l6.5-3.5v-7L8 1zm0 1.7 4.6 2.5L8 7.7 3.4 5.2 8 2.7zM3 6.5l4.3 2.3v4.4L3 10.9V6.5zm5.8 6.7V8.8L13 6.5v4.4l-4.2 2.3z"/></svg>시점 초기화</button>
         </div>
@@ -268,7 +267,7 @@ const root = document.documentElement;
 const tok = n => getComputedStyle(root).getPropertyValue(n).trim();
 
 /* ---------------- Geometry constants (1 unit = 1 m) ---------------- */
-const H = 3.2, NF = 3, CX = 10, XE = 13;
+const H = 3.2, NF = 2, CX = 10, XE = 13;
 const ZB = -3, ZF = 2, ZP = -1;           // back wall, open front, room partition
 const NSEG = 8, SEGW = 2.5;
 const INNER = 10.75, OUTER = 12.25;        // stair half-lane centres (abs x)
@@ -276,9 +275,10 @@ const FIRE_T = 2, FIRE_X = -8, FIRE_Z = -2, FIRE_F = 1;
 const SENSOR_TH = 0.06;
 const segX = s => -CX + SEGW * (s + 0.5);
 const cellC = (f, s) => f * NSEG + s;
-const cellS = (side, f) => 24 + (side > 0 ? 3 : 0) + f;
-const NCELL = 30;
-const cellFloor = c => c < 24 ? Math.floor(c / NSEG) : (c - 24) % 3;
+const NC = NF * NSEG;
+const cellS = (side, f) => NC + (side > 0 ? NF : 0) + f;
+const NCELL = NC + 2 * NF;
+const cellFloor = c => c < NC ? Math.floor(c / NSEG) : (c - NC) % NF;
 
 /* ---------------- Seeded RNG ---------------- */
 function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -316,7 +316,7 @@ const smoke = { d: new Float32Array(NCELL), delta: new Float32Array(NCELL), edge
   }
   for (const side of [-1, 1]) for (let f = 0; f < NF - 1; f++) {
     E.push([cellS(side, f), cellS(side, f + 1), 0.95]);   // stack effect: up
-    E.push([cellS(side, f + 1), cellS(side, f), 0.025]);  // weak down
+    E.push([cellS(side, f + 1), cellS(side, f), 0.3]);    // smoke banks down once the top fills
   }
 })();
 function smokeStep(dt, t) {
@@ -353,7 +353,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.autoClear = false;
 const FOV = 30;
 const camera = new THREE.PerspectiveCamera(FOV, 1, 0.5, 400);
-const CAM_DEFAULT = { theta: 0.34, phi: 0.46, zoom: 1, ty: 4.1 };
+const CAM_DEFAULT = { theta: 0.34, phi: 0.46, zoom: 1, ty: 2.9 };
 const cam = Object.assign({}, CAM_DEFAULT);
 
 function placeCamera(vp) {
@@ -435,7 +435,7 @@ const ROLES = {
 };
 
 function makeBuilding(mode) {
-  const B = { mode, scene: new THREE.Scene(), floorMats: [[], [], []], pick: [], signs: [], sensors: [], residents: [],
+  const B = { mode, scene: new THREE.Scene(), floorMats: Array.from({ length: NF }, () => []), pick: [], signs: [], sensors: [], residents: [],
               field: [], matCache: {}, slots: { '-1': 0, '1': 0 }, labels: [] };
   const S = B.scene;
   const regMat = (m, f) => { m.userData.base = { opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite }; B.floorMats[f].push(m); return m; };
@@ -572,7 +572,7 @@ function makeBuilding(mode) {
   // Smoke particles
   const parts = []; const RS = rng(23);
   for (let c = 0; c < NCELL; c++) {
-    const n = c < 24 ? 26 : 40;
+    const n = c < NC ? 26 : 40;
     for (let i = 0; i < n; i++) parts.push({ c, bx: RS(), bz: RS(), r: RS(), ph: RS() * 6.28, sz: 1.6 + RS() * 1.6 });
   }
   const NP = parts.length;
@@ -783,7 +783,7 @@ function stepSim(dt) {
   const F = sim.flags;
   if (!F.fire && sim.t >= FIRE_T) { F.fire = 1; logEvent('f', '2층 왼쪽 세대 발화'); }
   if (sim.alarmT === null && A.sensors.some(s => smoke.d[s.cell] > SENSOR_TH)) { sim.alarmT = sim.t; logEvent('all', '연기 감지기 작동 · 화재 경보 발령, 주민 대피 시작'); }
-  if (!F.stairL && smoke.d[cellS(-1, 2)] > 0.25) { F.stairL = 1; logEvent('f', '연기가 왼쪽 계단을 타고 3층까지 확산'); }
+  if (!F.stairL && smoke.d[cellS(-1, 0)] > 0.2) { F.stairL = 1; logEvent('f', '연기가 왼쪽 계단을 타고 1층까지 내려옴'); }
   for (const B of buildings) {
     updateField(B);
     for (const r of B.residents) stepResident(B, r, dt);
@@ -821,7 +821,7 @@ function animate(dtR) {
     B.smoke.parts.forEach((p, i) => {
       const d = smoke.d[p.c];
       let x, y, z, a;
-      if (p.c < 24) {
+      if (p.c < NC) {
         const f = Math.floor(p.c / NSEG), s = p.c % NSEG;
         x = -CX + (s + p.bx) * SEGW + Math.sin(vt * 0.35 + p.ph) * 0.45;
         z = -2.8 + p.bz * 4.6;
@@ -829,7 +829,7 @@ function animate(dtR) {
         y = f * H + H - 0.3 - depth + Math.sin(vt * 0.5 + p.ph) * 0.08;
         a = Math.max(0, Math.min(1, d * 1.7 - p.r * 0.35)) * 0.42;
       } else {
-        const side = p.c < 27 ? -1 : 1, f = (p.c - 24) % 3;
+        const side = p.c < NC + NF ? -1 : 1, f = (p.c - NC) % NF;
         x = side * (10.2 + p.bx * 2.6);
         z = -2.8 + p.bz * 4.6;
         const yMin = f === 0 ? 0.2 : f * H - H / 2, yMax = f === NF - 1 ? f * H + H - 0.3 : f * H + H / 2;
@@ -983,7 +983,8 @@ function updateHud(force) {
 function showVerdict() {
   const a = stats(A), b = stats(Bld), v = $('verdict');
   const dt = a.time - b.time, de = a.exp > 0 ? (1 - b.exp / a.exp) * 100 : 0;
-  v.innerHTML = `구조판 건물(B)은 전원 대피가 <b>${Math.abs(dt).toFixed(1)}초 ${dt >= 0 ? '빨랐고' : '늦었고'}</b>, 주민 평균 연기 노출량은 <b>${de.toFixed(0)}% ${de >= 0 ? '낮았습니다' : '높았습니다'}</b>. 잠시 후 처음부터 다시 재생합니다.`;
+  const tPart = Math.abs(dt) < 0.5 ? '전원 대피 시간은 <b>같았지만</b>' : `전원 대피가 <b>${Math.abs(dt).toFixed(1)}초 ${dt > 0 ? '빨랐고' : '늦었고'}</b>`;
+  v.innerHTML = `구조판 건물(B)은 ${tPart}, 주민 평균 연기 노출량은 <b>${de.toFixed(0)}% ${de >= 0 ? '낮았습니다' : '높았습니다'}</b>. 잠시 후 처음부터 다시 재생합니다.`;
   v.hidden = false;
 }
 
