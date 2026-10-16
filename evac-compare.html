@@ -1,0 +1,1096 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>구조판 대피 비교</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 짧은 인트로 → 좌우 분할 3D 무대(하단 HUD 오버레이) → 범례·이벤트 로그. 건축 모형 테이블 같은 차가운 회색 바탕. */
+:root {
+  --bg: #eceff1;
+  --surface: #ffffff;
+  --ink: #121a21;
+  --muted: #586571;
+  --line: #d2d9de;
+  --hud: rgba(250, 251, 252, 0.88);
+  --a: #6a7681;
+  --b: #0c7b6d;
+  --fire: #e2462c;
+  --exit: #14a058;
+
+  /* 3D scene tokens (hex only; read by script) */
+  --scene: #e2e7ea;
+  --m-slab: #f6f8f9;
+  --m-wall: #eaeef1;
+  --m-floor: #dde3e7;
+  --m-stair: #e6eaed;
+  --m-edge: #75838f;
+  --m-glass: #a7c4d3;
+  --m-ground: #d3dade;
+  --smoke: #474e55;
+  --label: #3c4852;
+
+  --p-adult: #2f6fdb;
+  --p-child: #eeb000;
+  --p-elder: #8a5cf0;
+  --p-mob: #df3f96;
+
+  --f-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1215; --surface: #151c21; --ink: #e5ecf1; --muted: #93a1ac; --line: #26313a;
+    --hud: rgba(18, 25, 30, 0.86); --a: #8f9ba6; --b: #2bb39f; --fire: #ff6a4a; --exit: #22c06d;
+    --scene: #10171c; --m-slab: #2a343c; --m-wall: #252f37; --m-floor: #1f282f; --m-stair: #2e3941;
+    --m-edge: #627380; --m-glass: #3d6779; --m-ground: #141c22; --smoke: #a5aeb6; --label: #a9b6c0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1215; --surface: #151c21; --ink: #e5ecf1; --muted: #93a1ac; --line: #26313a;
+  --hud: rgba(18, 25, 30, 0.86); --a: #8f9ba6; --b: #2bb39f; --fire: #ff6a4a; --exit: #22c06d;
+  --scene: #10171c; --m-slab: #2a343c; --m-wall: #252f37; --m-floor: #1f282f; --m-stair: #2e3941;
+  --m-edge: #627380; --m-glass: #3d6779; --m-ground: #141c22; --smoke: #a5aeb6; --label: #a9b6c0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--f-sans); font-size: 15px; line-height: 1.55; }
+.page {
+  max-width: 1440px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+  display: grid; gap: 20px;
+}
+
+.intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 40px; align-items: end; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+h1 { font-size: clamp(28px, 4.2vw, 46px); line-height: 1.12; letter-spacing: -0.02em; font-weight: 700; margin: 0; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--b); }
+.lead { margin: 0; color: var(--muted); max-width: 62ch; }
+.lead strong { color: var(--ink); font-weight: 600; }
+
+/* ---------- Stage ---------- */
+.stage { position: relative; border-radius: 14px; overflow: hidden; background: var(--scene); border: 1px solid var(--line); }
+.viewport { position: relative; height: clamp(560px, 74vh, 820px); }
+.viewport canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; }
+.viewport canvas.dragging { cursor: grabbing; }
+.split { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line); pointer-events: none; }
+
+.vp-label { position: absolute; top: 14px; display: grid; gap: 4px; pointer-events: none; max-width: calc(50% - 32px); }
+.vp-label.a { left: 16px; }
+.vp-label.b { left: calc(50% + 16px); }
+.vp-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; }
+.vp-title .badge { font-family: var(--f-mono); font-size: 12px; font-weight: 600; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; color: var(--surface); }
+.vp-label.a .badge { background: var(--a); }
+.vp-label.b .badge { background: var(--b); }
+.vp-sub { font-size: 13px; color: var(--muted); }
+.vp-status { justify-self: start; font-family: var(--f-mono); font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--hud); border: 1px solid var(--line); color: var(--ink); }
+.vp-status[data-state="alarm"] { border-color: var(--fire); color: var(--fire); }
+.vp-status[data-state="switch"] { border-color: var(--b); color: var(--b); }
+.vp-status[data-state="done"] { border-color: var(--exit); color: var(--exit); }
+
+/* ---------- HUD ---------- */
+.hud {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  background: var(--hud); border: 1px solid var(--line); border-radius: 12px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  padding: 12px 14px; display: grid; gap: 10px;
+}
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 22px; }
+.metric { display: grid; gap: 4px; min-width: 0; }
+.m-label { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; display: flex; justify-content: space-between; gap: 8px; }
+.m-label small { font-family: var(--f-mono); font-size: 11px; }
+.m-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) 76px; align-items: center; gap: 8px; }
+.m-row .tag { font-family: var(--f-mono); font-size: 11px; font-weight: 600; color: var(--muted); }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; border-radius: 4px; transition: width 0.25s linear; }
+.m-row.a .bar i { background: var(--a); }
+.m-row.b .bar i { background: var(--b); }
+.m-row .v { font-family: var(--f-mono); font-size: 14px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.grp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.grp.right { margin-left: auto; }
+.btn {
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:focus-visible, .seg button:focus-visible { outline: 2px solid var(--b); outline-offset: 2px; }
+.btn svg { width: 14px; height: 14px; fill: currentColor; }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); min-width: 92px; justify-content: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-family: var(--f-mono); font-size: 12px; color: var(--muted); background: none; border: 0; height: 32px; padding: 0 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.clock { font-family: var(--f-mono); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.clock small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.verdict { font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--b); color: var(--ink); background: var(--surface); }
+.verdict b { color: var(--b); }
+
+/* ---------- Below ---------- */
+.below { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; min-width: 0; }
+.panel h2 { font-size: 13px; font-family: var(--f-mono); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 0 0 14px; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 14px; }
+.legend .pill { width: 14px; border-radius: 7px; justify-self: center; }
+.legend .spd { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.keys { display: grid; gap: 8px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); list-style: none; font-size: 13px; color: var(--muted); }
+.keys li { display: flex; gap: 10px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 260px; overflow-y: auto; font-size: 14px; }
+.log li { display: grid; grid-template-columns: 54px 22px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.log time { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.log .who { font-family: var(--f-mono); font-size: 11px; font-weight: 600; border-radius: 4px; text-align: center; height: 18px; line-height: 18px; margin-top: 1px; color: var(--surface); background: var(--muted); }
+.log .who.a { background: var(--a); }
+.log .who.b { background: var(--b); }
+.log .who.f { background: var(--fire); }
+.log .empty { display: block; color: var(--muted); border: 0; }
+.hint { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+
+@media (max-width: 719px) {
+  .intro, .below { grid-template-columns: minmax(0, 1fr); }
+  .viewport { height: 580px; }
+  .split { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 1px; }
+  .vp-label { max-width: calc(100% - 32px); }
+  .vp-label.b { left: 16px; top: calc(50% + 12px); }
+  .hud { position: static; border-radius: 0; border: 0; border-top: 1px solid var(--line); }
+  .metrics { grid-template-columns: minmax(0, 1fr); }
+  .grp.right { margin-left: 0; }
+  .legend { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar i { transition: none; }
+}
+</style>
+
+<div class="page">
+  <header class="intro">
+    <div>
+      <p class="eyebrow">화재 대피 비교 시뮬레이션 · 3층 공동주택</p>
+      <h1>같은 불, <em>다른 길</em></h1>
+    </div>
+    <p class="lead">2층 왼쪽 세대에서 불이 나고, 연기는 왼쪽 계단을 타고 위층으로 올라갑니다. <strong>A 건물</strong>의 표지판은 가까운 계단만 가리킵니다. <strong>B 건물</strong>의 구조판은 센서가 연기를 감지하면 화살표를 돌려 연기가 없는 계단으로 안내합니다. 두 건물 주민 구성과 출발 시각은 똑같습니다.</p>
+  </header>
+
+  <section class="stage" aria-label="대피 시뮬레이션">
+    <div class="viewport" id="viewport">
+      <canvas id="c" aria-label="두 건물의 3D 화재 대피 시뮬레이션"></canvas>
+      <div class="split"></div>
+      <div class="vp-label a">
+        <div class="vp-title"><span class="badge">A</span>일반 비상구 표지판</div>
+        <div class="vp-sub">방향 고정 · 가장 가까운 계단 안내</div>
+        <div class="vp-status" id="statusA">평상시</div>
+      </div>
+      <div class="vp-label b">
+        <div class="vp-title"><span class="badge">B</span>구조판 적용</div>
+        <div class="vp-sub">센서 감지 후 표지판 방향 전환</div>
+        <div class="vp-status" id="statusB">평상시</div>
+      </div>
+    </div>
+
+    <div class="hud" id="hud">
+      <div class="verdict" id="verdict" hidden></div>
+      <div class="metrics">
+        <div class="metric">
+          <div class="m-label">대피 완료 인원 <small id="totalN"></small></div>
+          <div class="m-row a"><span class="tag">A</span><div class="bar"><i id="barDoneA"></i></div><b class="v" id="doneA">0</b></div>
+          <div class="m-row b"><span class="tag">B</span><div class="bar"><i id="barDoneB"></i></div><b class="v" id="doneB">0</b></div>
+        </div>
+        <div class="metric">
+          <div class="m-label">경과 시간 <small>전원 대피 시 멈춤</small></div>
+          <div class="m-row a"><span class="tag">A</span><div class="bar"><i id="barTimeA"></i></div><b class="v" id="timeA">0.0초</b></div>
+          <div class="m-row b"><span class="tag">B</span><div class="bar"><i id="barTimeB"></i></div><b class="v" id="timeB">0.0초</b></div>
+        </div>
+        <div class="metric">
+          <div class="m-label">평균 연기 노출량 <small>농도×초</small></div>
+          <div class="m-row a"><span class="tag">A</span><div class="bar"><i id="barExpA"></i></div><b class="v" id="expA">0.00</b></div>
+          <div class="m-row b"><span class="tag">B</span><div class="bar"><i id="barExpB"></i></div><b class="v" id="expB">0.00</b></div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="grp">
+          <button class="btn primary" id="btnPlay" type="button"></button>
+          <button class="btn" id="btnReplay" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.8 3.2 8 .5v2z"/></svg>다시보기</button>
+          <div class="seg" role="group" aria-label="재생 속도" id="speedSeg">
+            <button type="button" data-speed="1" aria-pressed="false">1×</button>
+            <button type="button" data-speed="3" aria-pressed="true">3×</button>
+            <button type="button" data-speed="6" aria-pressed="false">6×</button>
+          </div>
+        </div>
+        <div class="clock" id="clock">00:00<small>시뮬레이션</small></div>
+        <div class="grp right">
+          <div class="seg" role="group" aria-label="층 강조" id="floorSeg">
+            <button type="button" data-floor="-1" aria-pressed="true">전체</button>
+            <button type="button" data-floor="0" aria-pressed="false">1F</button>
+            <button type="button" data-floor="1" aria-pressed="false">2F</button>
+            <button type="button" data-floor="2" aria-pressed="false">3F</button>
+          </div>
+          <button class="btn" id="btnView" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 1.5 4.5v7L8 15l6.5-3.5v-7L8 1zm0 1.7 4.6 2.5L8 7.7 3.4 5.2 8 2.7zM3 6.5l4.3 2.3v4.4L3 10.9V6.5zm5.8 6.7V8.8L13 6.5v4.4l-4.2 2.3z"/></svg>시점 초기화</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="below">
+    <div class="panel">
+      <h2>읽는 법</h2>
+      <ul class="legend" id="legend"></ul>
+      <ul class="keys">
+        <li><span class="dot" style="background: var(--exit)"></span>초록 표지판 · 화살표가 가리키는 계단으로 이동</li>
+        <li><span class="dot" style="background: var(--fire)"></span>빨간 표지판 · 연기가 찬 계단, 진입 금지 (B 건물만)</li>
+        <li><span class="dot" style="background: var(--fire)"></span>깜빡이는 센서 · 연기 감지. 두 건물 모두 감지하지만 표지판과 연동되는 건 B뿐</li>
+        <li><span class="dot" style="background: var(--smoke)"></span>연기 구역 통과 시 이동 속도 최대 60% 감소, 노출량 누적. 많이 마신 주민일수록 몸 색이 어두워짐</li>
+      </ul>
+      <p class="hint">드래그로 회전, 휠로 확대할 수 있습니다. 건물의 층을 클릭하면 그 층만 강조됩니다.</p>
+    </div>
+    <div class="panel">
+      <h2>사건 기록</h2>
+      <ol class="log" id="log"><li class="empty">재생하면 발화, 감지, 표지판 전환 시각이 여기에 기록됩니다.</li></ol>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const V3 = THREE.Vector3;
+const root = document.documentElement;
+const tok = n => getComputedStyle(root).getPropertyValue(n).trim();
+
+/* ---------------- Geometry constants (1 unit = 1 m) ---------------- */
+const H = 3.2, NF = 3, CX = 10, XE = 13;
+const ZB = -3, ZF = 2, ZP = -1;           // back wall, open front, room partition
+const NSEG = 8, SEGW = 2.5;
+const INNER = 10.75, OUTER = 12.25;        // stair half-lane centres (abs x)
+const FIRE_T = 2, FIRE_X = -8, FIRE_Z = -2, FIRE_F = 1;
+const SENSOR_TH = 0.06;
+const segX = s => -CX + SEGW * (s + 0.5);
+const cellC = (f, s) => f * NSEG + s;
+const cellS = (side, f) => 24 + (side > 0 ? 3 : 0) + f;
+const NCELL = 30;
+const cellFloor = c => c < 24 ? Math.floor(c / NSEG) : (c - 24) % 3;
+
+/* ---------------- Seeded RNG ---------------- */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------------- Resident types ---------------- */
+const TYPES = {
+  adult:    { label: '성인',     speed: 1.45, r: 0.24, h: 1.15, token: '--p-adult' },
+  child:    { label: '어린이',   speed: 1.15, r: 0.18, h: 0.78, token: '--p-child' },
+  elder:    { label: '노인',     speed: 0.88, r: 0.24, h: 1.05, token: '--p-elder' },
+  mobility: { label: '이동약자', speed: 0.66, r: 0.32, h: 0.95, token: '--p-mob' },
+};
+const SPECS = (() => {
+  const R = rng(7), pool = ['adult', 'adult', 'child', 'elder', 'adult', 'mobility', 'child', 'elder', 'adult', 'adult'];
+  const out = []; let k = 0;
+  for (let f = 0; f < NF; f++) for (let room = 0; room < 5; room++) {
+    if (f === FIRE_F && room === 0) continue;
+    for (let i = 0; i < 2; i++) {
+      const type = pool[(k++ * 3 + f) % pool.length];
+      const extra = type === 'mobility' ? 2 : type === 'elder' ? 1 : 0;
+      out.push({ f, room, type, ox: (i ? 0.55 : -0.55) + (R() - 0.5) * 0.3, oz: (R() - 0.5) * 0.8,
+                 delay: 0.5 + R() * 3 + extra, jx: R() - 0.5, jz: R() - 0.5 });
+    }
+  }
+  return out;
+})();
+
+/* ---------------- Smoke model (shared, deterministic) ---------------- */
+const smoke = { d: new Float32Array(NCELL), delta: new Float32Array(NCELL), edges: [] };
+(() => {
+  const E = smoke.edges, sym = (a, b, c) => { E.push([a, b, c], [b, a, c]); };
+  for (let f = 0; f < NF; f++) {
+    for (let s = 0; s < NSEG - 1; s++) sym(cellC(f, s), cellC(f, s + 1), 0.2);
+    sym(cellC(f, 0), cellS(-1, f), 0.5);
+    sym(cellC(f, NSEG - 1), cellS(1, f), 0.5);
+  }
+  for (const side of [-1, 1]) for (let f = 0; f < NF - 1; f++) {
+    E.push([cellS(side, f), cellS(side, f + 1), 0.95]);   // stack effect: up
+    E.push([cellS(side, f + 1), cellS(side, f), 0.025]);  // weak down
+  }
+})();
+function smokeStep(dt, t) {
+  const d = smoke.d, dl = smoke.delta; dl.fill(0);
+  if (t >= FIRE_T) {
+    const g = Math.min(1, (t - FIRE_T) / 6);
+    dl[cellC(FIRE_F, 0)] += 0.6 * g * (1 - d[cellC(FIRE_F, 0)]);
+    dl[cellC(FIRE_F, 1)] += 0.22 * g * (1 - d[cellC(FIRE_F, 1)]);
+  }
+  for (const [a, b, c] of smoke.edges) { const fl = c * d[a] * (1 - d[b]); dl[a] -= fl; dl[b] += fl; }
+  for (let i = 0; i < NCELL; i++) d[i] = Math.min(1, Math.max(0, d[i] + (dl[i] - 0.004 * d[i]) * dt));
+}
+function densityAt(p) {
+  const ax = Math.abs(p.x);
+  if (ax > XE) return 0;
+  const f = Math.max(0, Math.min(NF - 1, Math.round(p.y / H)));
+  if (ax > CX) return smoke.d[cellS(Math.sign(p.x), f)];
+  const s = Math.max(0, Math.min(NSEG - 1, Math.floor((p.x + CX) / SEGW)));
+  return smoke.d[cellC(f, s)] * (p.z < ZP ? 0.7 : 1);
+}
+
+/* ---------------- Sim state ---------------- */
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sim = { t: 0, vt: 0, alarmT: null, playing: !reduceMotion, speed: 3, finished: false, finishedAt: 0, focus: -1, flags: {} };
+
+/* ---------------- Renderer + camera ---------------- */
+const canvas = document.getElementById('c');
+const viewportEl = document.getElementById('viewport');
+const hudEl = document.getElementById('hud');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.autoClear = false;
+const FOV = 30;
+const camera = new THREE.PerspectiveCamera(FOV, 1, 0.5, 400);
+const CAM_DEFAULT = { theta: 0.34, phi: 0.46, zoom: 1, ty: 4.1 };
+const cam = Object.assign({}, CAM_DEFAULT);
+
+function placeCamera(vp) {
+  const aspect = vp.w / vp.h;
+  camera.aspect = aspect;
+  const vf = FOV * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * aspect);
+  const d = Math.max(14.6 / Math.tan(hf / 2), 6.0 / Math.tan(vf / 2)) * cam.zoom + 2;
+  const target = new V3(0, cam.ty, -0.5);
+  camera.position.set(
+    target.x + d * Math.cos(cam.phi) * Math.sin(cam.theta),
+    target.y + d * Math.sin(cam.phi),
+    target.z + d * Math.cos(cam.phi) * Math.cos(cam.theta));
+  camera.lookAt(target);
+  camera.updateProjectionMatrix();
+}
+
+/* ---------------- Theming registry ---------------- */
+const themed = [];   // {obj, token, prop}
+function themedColor(obj, token, prop = 'color') { themed.push({ obj, token, prop }); obj[prop].set(tok(token) || '#888'); return obj; }
+
+/* ---------------- Shared textures ---------------- */
+function radialTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+const haloTex = radialTex();
+const arrowGeo = (() => {
+  const s = new THREE.Shape();
+  [[-0.42, -0.07], [0.1, -0.07], [0.1, -0.19], [0.42, 0], [0.1, 0.19], [0.1, 0.07], [-0.42, 0.07]].forEach(([x, y], i) => i ? s.lineTo(x, y) : s.moveTo(x, y));
+  return new THREE.ShapeGeometry(s);
+})();
+const capsuleCache = {};
+function capsuleParts(type) {
+  if (capsuleCache[type]) return capsuleCache[type];
+  const T = TYPES[type];
+  return (capsuleCache[type] = {
+    body: new THREE.CylinderGeometry(T.r, T.r, T.h - 2 * T.r, 12),
+    cap: new THREE.SphereGeometry(T.r, 12, 8),
+  });
+}
+
+/* ---------------- Points shader (smoke + flames) ---------------- */
+function pointsMaterial(color, additive) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(color) }, uScale: { value: 300 }, uFocus: { value: -1 } },
+    vertexShader: `
+      attribute float aAlpha; attribute float aSize; attribute float aFloor;
+      uniform float uScale; uniform float uFocus; varying float vA;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * uScale / -mv.z;
+        float dim = (uFocus < -0.5 || abs(aFloor - uFocus) < 0.5) ? 1.0 : 0.12;
+        vA = aAlpha * dim;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor; varying float vA;
+      void main(){
+        float r = length(gl_PointCoord - 0.5);
+        float a = smoothstep(0.5, 0.0, r);
+        gl_FragColor = vec4(uColor, a * a * vA);
+      }`,
+    transparent: true, depthWrite: false,
+    blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+  });
+}
+
+/* ---------------- Building ---------------- */
+const ROLES = {
+  slab:  { token: '--m-slab' },
+  floor: { token: '--m-floor' },
+  wall:  { token: '--m-wall' },
+  stair: { token: '--m-stair' },
+  glass: { token: '--m-glass', opacity: 0.26 },
+  roof:  { token: '--m-glass', opacity: 0.1 },
+};
+
+function makeBuilding(mode) {
+  const B = { mode, scene: new THREE.Scene(), floorMats: [[], [], []], pick: [], signs: [], sensors: [], residents: [],
+              field: [], matCache: {}, slots: { '-1': 0, '1': 0 }, labels: [] };
+  const S = B.scene;
+  const regMat = (m, f) => { m.userData.base = { opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite }; B.floorMats[f].push(m); return m; };
+
+  function mat(f, role) {
+    const key = f + role;
+    if (B.matCache[key]) return B.matCache[key];
+    const R = ROLES[role];
+    const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, flatShading: true,
+      transparent: !!R.opacity, opacity: R.opacity || 1, depthWrite: !R.opacity, side: R.opacity ? THREE.DoubleSide : THREE.FrontSide });
+    themedColor(m, R.token);
+    regMat(m, f);
+    return (B.matCache[key] = m);
+  }
+  function edgeMat(f) {
+    const key = f + 'edge';
+    if (B.matCache[key]) return B.matCache[key];
+    const m = new THREE.LineBasicMaterial({ transparent: true, opacity: 0.5 });
+    themedColor(m, '--m-edge'); regMat(m, f);
+    return (B.matCache[key] = m);
+  }
+  function box(f, role, w, h, d, x, y, z, opt = {}) {
+    const g = new THREE.BoxGeometry(w, h, d);
+    const m = new THREE.Mesh(g, mat(f, role));
+    m.position.set(x, y, z);
+    const glassy = role === 'glass' || role === 'roof';
+    m.castShadow = !glassy; m.receiveShadow = !glassy;
+    m.userData.floor = f;
+    S.add(m);
+    if (!opt.noEdge) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), edgeMat(f)); e.position.copy(m.position); S.add(e); }
+    if (opt.pick !== false) B.pick.push(m);
+    return m;
+  }
+
+  // Lights
+  S.add(new THREE.HemisphereLight(0xffffff, 0x8a96a0, 0.62));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.62);
+  sun.position.set(14, 26, 20); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 18, bottom: -12, near: 1, far: 80 });
+  sun.shadow.bias = -0.0006;
+  S.add(sun);
+  B.sun = sun;
+
+  // Ground + assembly pads
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 90), themedColor(new THREE.MeshStandardMaterial({ roughness: 1 }), '--m-ground'));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.23; ground.receiveShadow = true; S.add(ground);
+  for (const sg of [-1, 1]) {
+    const pad = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 4.2), themedColor(new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.22 }), '--exit'));
+    pad.rotation.x = -Math.PI / 2; pad.position.set(sg * 16.4, -0.21, -0.9); S.add(pad);
+  }
+
+  for (let f = 0; f < NF; f++) {
+    const y0 = f * H;
+    // Floor slabs
+    if (f === 0) box(0, 'floor', 26, 0.22, 5, 0, -0.11, -0.5);
+    else {
+      box(f, 'floor', 2 * CX, 0.22, 5, 0, y0 - 0.11, -0.5);
+      for (const sg of [-1, 1]) box(f, 'floor', 3, 0.22, 1.4, sg * 11.5, y0 - 0.11, 1.3);
+    }
+    // Back wall (solid)
+    box(f, 'wall', 26.3, H, 0.16, 0, y0 + H / 2, ZB - 0.08);
+    // Room partitions (glass with door gaps) and dividers
+    for (let i = 0; i < 5; i++) {
+      const rx = -8 + 4 * i, dx = rx + 0.9;
+      const a0 = rx - 2, a1 = dx - 0.55, b0 = dx + 0.55, b1 = rx + 2;
+      box(f, 'glass', a1 - a0, H - 0.04, 0.06, (a0 + a1) / 2, y0 + H / 2, ZP, { pick: true });
+      box(f, 'glass', b1 - b0, H - 0.04, 0.06, (b0 + b1) / 2, y0 + H / 2, ZP, { pick: true });
+      box(f, 'glass', 1.1, 0.7, 0.06, dx, y0 + H - 0.37, ZP, { noEdge: true });
+    }
+    for (const x of [-6, -2, 2, 6]) box(f, 'wall', 0.12, H, 2, x, y0 + H / 2, -2);
+    // Stairwell enclosure (corridor side), open at the front for the landing
+    for (const sg of [-1, 1]) box(f, 'wall', 0.16, H, 3.4, sg * CX, y0 + H / 2, -1.3);
+    // End walls (glass); exit door on ground floor
+    for (const sg of [-1, 1]) {
+      if (f === 0) {
+        box(0, 'glass', 0.1, H, 3.6, sg * 13.05, H / 2, -1.2);
+        box(0, 'glass', 0.1, H - 2.3, 1.4, sg * 13.05, 2.3 + (H - 2.3) / 2, 1.3, { noEdge: true });
+        box(0, 'wall', 0.18, 2.3, 0.1, sg * 13.05, 1.15, 0.58, { noEdge: true });
+      } else box(f, 'glass', 0.1, H, 5, sg * 13.05, y0 + H / 2, -0.5);
+    }
+    // Stairs between f and f+1
+    if (f < NF - 1) for (const sg of [-1, 1]) {
+      const n = 8, rise = (H / 2) / n, run = 2.4 / n;
+      for (let i = 0; i < n; i++) {
+        box(f, 'stair', 1.3, rise + 0.12, run, sg * OUTER, y0 + (i + 1) * rise - (rise + 0.12) / 2, 0.6 - (i + 0.5) * run, { noEdge: i % 2 === 1 });
+        box(f, 'stair', 1.3, rise + 0.12, run, sg * INNER, y0 + H / 2 + (i + 1) * rise - (rise + 0.12) / 2, -1.8 + (i + 0.5) * run, { noEdge: i % 2 === 1 });
+      }
+      box(f, 'floor', 3, 0.2, 1.2, sg * 11.5, y0 + H / 2 - 0.1, -2.4);
+      box(f, 'wall', 0.08, 1.0, 2.4, sg * 11.5, y0 + H / 2 + 0.2, -0.6, { noEdge: true });
+    }
+    // Floor label
+    const lab = makeLabel(`${f + 1}F`); lab.position.set(-14.3, y0 + 1.6, 2.2); S.add(lab); B.labels.push(lab);
+  }
+  box(NF - 1, 'roof', 26.3, 0.12, 5.2, 0, NF * H + 0.06, -0.5, { pick: false });
+
+  // Signs
+  for (let f = 0; f < NF; f++) {
+    for (const s of [1, 3, 4, 6]) B.signs.push(makeSign(B, f, 'corridor', segX(s), f * H + 2.45, -0.62, s, 0));
+    for (const sg of [-1, 1]) B.signs.push(makeSign(B, f, 'stair', sg * 9.35, f * H + 2.5, 1.25, sg > 0 ? NSEG - 1 : 0, sg));
+  }
+  for (const sg of [-1, 1]) B.signs.push(makeSign(B, 0, 'exit', sg * 13.35, 2.6, 1.3, 0, sg));
+
+  // Sensors
+  for (let f = 0; f < NF; f++) {
+    for (const s of [1, 3, 4, 6]) B.sensors.push(makeSensor(B, f, segX(s) + 0.9, f * H + 2.95, ZP + 0.06, cellC(f, s)));
+    for (const sg of [-1, 1]) B.sensors.push(makeSensor(B, f, sg * 11.5, f * H + 2.95, ZB + 0.06, cellS(sg, f)));
+  }
+
+  // Fire
+  const fire = new THREE.Group(); fire.position.set(FIRE_X, FIRE_F * H, FIRE_Z); S.add(fire);
+  const fireMats = [];
+  const decalM = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.55, depthWrite: false }); themedColor(decalM, '--fire');
+  const decal = new THREE.Mesh(new THREE.CircleGeometry(1.4, 24), decalM); decal.rotation.x = -Math.PI / 2; decal.position.y = 0.02; fire.add(decal);
+  const coreM = new THREE.MeshBasicMaterial({ color: 0xff7a2e, transparent: true });
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 0), coreM); core.position.y = 0.5; fire.add(core);
+  const glowM = new THREE.SpriteMaterial({ map: haloTex, color: 0xff5a1f, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const glow = new THREE.Sprite(glowM); glow.scale.set(4.5, 4.5, 1); glow.position.y = 0.9; fire.add(glow);
+  const light = new THREE.PointLight(0xff5a1f, 0, 11, 2); light.position.y = 1.2; fire.add(light);
+  [decalM, coreM, glowM].forEach(m => { regMat(m, FIRE_F); fireMats.push(m); });
+  const NFL = 46, flPos = new Float32Array(NFL * 3), flA = new Float32Array(NFL), flS = new Float32Array(NFL), flF = new Float32Array(NFL).fill(FIRE_F);
+  const flSeed = []; const R = rng(11);
+  for (let i = 0; i < NFL; i++) { flSeed.push({ x: (R() - 0.5) * 1.6, z: (R() - 0.5) * 1.2, ph: R(), sp: 0.6 + R() * 0.8 }); flS[i] = 0.6 + R() * 0.7; }
+  const flGeo = new THREE.BufferGeometry();
+  flGeo.setAttribute('position', new THREE.BufferAttribute(flPos, 3));
+  flGeo.setAttribute('aAlpha', new THREE.BufferAttribute(flA, 1));
+  flGeo.setAttribute('aSize', new THREE.BufferAttribute(flS, 1));
+  flGeo.setAttribute('aFloor', new THREE.BufferAttribute(flF, 1));
+  const flMat = pointsMaterial(0xffa040, true);
+  const flames = new THREE.Points(flGeo, flMat); flames.frustumCulled = false; S.add(flames);
+  B.fire = { group: fire, core, glow, light, decal, flames, flSeed, flGeo, flMat, mats: fireMats };
+  fire.position.y = FIRE_F * H;
+
+  // Smoke particles
+  const parts = []; const RS = rng(23);
+  for (let c = 0; c < NCELL; c++) {
+    const n = c < 24 ? 26 : 40;
+    for (let i = 0; i < n; i++) parts.push({ c, bx: RS(), bz: RS(), r: RS(), ph: RS() * 6.28, sz: 1.6 + RS() * 1.6 });
+  }
+  const NP = parts.length;
+  const sPos = new Float32Array(NP * 3), sA = new Float32Array(NP), sS = new Float32Array(NP), sF = new Float32Array(NP);
+  parts.forEach((p, i) => { sS[i] = p.sz; sF[i] = cellFloor(p.c); });
+  const sGeo = new THREE.BufferGeometry();
+  sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+  sGeo.setAttribute('aAlpha', new THREE.BufferAttribute(sA, 1));
+  sGeo.setAttribute('aSize', new THREE.BufferAttribute(sS, 1));
+  sGeo.setAttribute('aFloor', new THREE.BufferAttribute(sF, 1));
+  const sMat = pointsMaterial(0x555555, false);
+  themed.push({ obj: sMat.uniforms.uColor, token: '--smoke', prop: 'value' }); sMat.uniforms.uColor.value.set(tok('--smoke'));
+  const sPts = new THREE.Points(sGeo, sMat); sPts.frustumCulled = false; sPts.renderOrder = 5; S.add(sPts);
+  B.smoke = { parts, geo: sGeo, mat: sMat };
+
+  // Residents
+  for (const sp of SPECS) B.residents.push(makeResident(B, sp));
+  return B;
+}
+
+function makeLabel(text) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const tex = new THREE.CanvasTexture(c);
+  const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sp = new THREE.Sprite(m); sp.scale.set(2.4, 1.2, 1);
+  sp.userData.draw = () => {
+    const g = c.getContext('2d'); g.clearRect(0, 0, 128, 64);
+    g.font = '600 40px "IBM Plex Mono", ui-monospace, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = tok('--label'); g.fillText(text, 64, 34); tex.needsUpdate = true;
+  };
+  sp.userData.draw();
+  return sp;
+}
+
+function makeSign(B, f, kind, x, y, z, seg, side) {
+  const g = new THREE.Group(); g.position.set(x, y, z);
+  const panelM = new THREE.MeshBasicMaterial({ color: tok('--exit') });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.52, 0.07), panelM); g.add(panel);
+  const frameM = new THREE.MeshBasicMaterial({ color: 0x1b2329 });
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(1.33, 0.6, 0.04), frameM); frame.position.z = -0.04; g.add(frame);
+  const arrowM = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  const arrow = new THREE.Mesh(arrowGeo, arrowM); arrow.position.z = 0.04; arrow.scale.setScalar(1.25); g.add(arrow);
+  const haloM = new THREE.SpriteMaterial({ map: haloTex, color: tok('--exit'), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+  const halo = new THREE.Sprite(haloM); halo.scale.set(2.2, 1.4, 1); halo.position.z = 0.1; g.add(halo);
+  if (kind !== 'corridor') { const hang = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.4, 0.03), frameM); hang.position.y = 0.48; g.add(hang); }
+  B.scene.add(g);
+  [panelM, frameM, arrowM, haloM].forEach(m => { m.transparent = true; m.userData.base = { opacity: m.opacity, transparent: true, depthWrite: m.depthWrite }; B.floorMats[f].push(m); });
+  const init = kind === 'corridor' ? (seg < 4 ? Math.PI : 0) : (side > 0 ? 0 : Math.PI);
+  arrow.rotation.z = init;
+  return { g, panel, panelM, arrow, halo, haloM, kind, f, seg, side, angle: init, target: init, blocked: false, flash: 0 };
+}
+
+function makeSensor(B, f, x, y, z, cell) {
+  const g = new THREE.Group(); g.position.set(x, y, z);
+  const baseM = new THREE.MeshStandardMaterial({ color: 0xf2f4f5, roughness: 0.6 });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.12), baseM); g.add(base);
+  const ledM = new THREE.MeshBasicMaterial({ color: tok('--exit') });
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), ledM); led.position.set(0, -0.02, 0.08); g.add(led);
+  const haloM = new THREE.SpriteMaterial({ map: haloTex, color: tok('--exit'), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+  const halo = new THREE.Sprite(haloM); halo.scale.set(0.7, 0.7, 1); halo.position.z = 0.12; g.add(halo);
+  B.scene.add(g);
+  [baseM, ledM, haloM].forEach(m => { m.transparent = true; m.userData.base = { opacity: m.opacity, transparent: true, depthWrite: m.depthWrite }; B.floorMats[f].push(m); });
+  return { g, ledM, haloM, halo, cell, on: false };
+}
+
+function makeResident(B, sp) {
+  const T = TYPES[sp.type], parts = capsuleParts(sp.type);
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.55, flatShading: false, transparent: true });
+  const base = new THREE.Color(tok(T.token));
+  m.color.copy(base);
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(parts.body, m); body.position.y = T.h / 2; body.castShadow = true; g.add(body);
+  const top = new THREE.Mesh(parts.cap, m); top.position.y = T.h - T.r; top.castShadow = true; g.add(top);
+  const bot = new THREE.Mesh(parts.cap, m); bot.position.y = T.r; g.add(bot);
+  B.scene.add(g);
+  const r = { sp, T, g, m, base, pos: new V3(), state: 'idle', path: [], side: 0, exposure: 0, evac: false, evacT: 0, bob: 0, f: sp.f };
+  resetResident(B, r);
+  return r;
+}
+
+function resetResident(B, r) {
+  const sp = r.sp, rx = -8 + 4 * sp.room;
+  r.pos.set(rx + sp.ox, sp.f * H, -2 + sp.oz);
+  r.state = 'idle'; r.path = []; r.side = 0; r.exposure = 0; r.evac = false; r.evacT = 0; r.f = sp.f;
+  r.m.color.copy(r.base);
+  r.g.position.copy(r.pos);
+}
+
+/* ---------------- Routing ---------------- */
+function nearestField() { return Array.from({ length: NF }, () => Array.from({ length: NSEG }, (_, s) => s < NSEG / 2 ? -1 : 1)); }
+function routeCost(f, s, side) {
+  const x = segX(s), d = smoke.d;
+  let c = Math.abs(side * CX - x), sm = 0;
+  if (side < 0) for (let k = s; k >= 0; k--) sm += d[cellC(f, k)] * SEGW;
+  else for (let k = s; k < NSEG; k++) sm += d[cellC(f, k)] * SEGW;
+  for (let k = f; k >= 0; k--) sm += d[cellS(side, k)] * 7;
+  return c + 60 * sm;
+}
+function updateField(B) {
+  if (B.mode !== 'rescue' || sim.alarmT === null) return;
+  for (let f = 0; f < NF; f++) {
+    let changed = 0, to = 0;
+    for (let s = 0; s < NSEG; s++) {
+      const cur = B.field[f][s], other = -cur;
+      if (routeCost(f, s, other) < routeCost(f, s, cur) - 1.5) {
+        B.field[f][s] = other;
+        if (B.signs.some(g => g.kind === 'corridor' && g.f === f && g.seg === s)) { changed++; to = other; }
+      }
+    }
+    if (changed && !B.logged[f]) { B.logged[f] = 1; logEvent('b', `${f + 1}층 표지판 회전 → ${to > 0 ? '오른쪽' : '왼쪽'} 계단 안내`); }
+  }
+}
+
+function stairPath(side, f, jx, jz) {
+  const P = [], ix = side * (INNER + jx * 0.4), ox = side * (OUTER + jx * 0.4), zl = 1.2 + jz * 0.4;
+  P.push(new V3(ix, f * H, zl));
+  for (let k = f; k > 0; k--) {
+    const y = k * H, ym = y - H / 2, y0 = (k - 1) * H;
+    P.push(new V3(ix, y, 0.6), new V3(ix, ym, -1.8), new V3(ix, ym, -2.35 + jz * 0.3),
+           new V3(ox, ym, -2.35 + jz * 0.3), new V3(ox, ym, -1.8), new V3(ox, y0, 0.6), new V3(ox, y0, zl));
+  }
+  return P;
+}
+function exitPath(B, side, jz) {
+  const n = B.slots[side]++, col = n % 4, row = Math.floor(n / 4);
+  const zl = 1.25 + jz * 0.4;
+  return [new V3(side * 13.05, 0, zl), new V3(side * 14.6, 0, zl), new V3(side * (15.1 + col * 0.8), 0, -2.6 + row * 0.8)];
+}
+
+/* ---------------- Resident step ---------------- */
+function moveAlong(r, dist) {
+  while (dist > 0 && r.path.length) {
+    const tg = r.path[0], dx = tg.x - r.pos.x, dy = tg.y - r.pos.y, dz = tg.z - r.pos.z;
+    const L = Math.hypot(dx, dy, dz);
+    if (L <= dist) { r.pos.copy(tg); r.path.shift(); dist -= L; }
+    else { const k = dist / L; r.pos.x += dx * k; r.pos.y += dy * k; r.pos.z += dz * k; dist = 0; }
+  }
+  return r.path.length === 0;
+}
+
+function stepResident(B, r, dt) {
+  if (r.state === 'idle') {
+    if (sim.alarmT !== null && sim.t >= sim.alarmT + r.sp.delay) {
+      const dx = -8 + 4 * r.sp.room + 0.9, y = r.sp.f * H;
+      r.path = [new V3(dx, y, -1.5), new V3(dx, y, -0.3 + r.sp.jz * 0.6)];
+      r.state = 'leave';
+    }
+    if (r.state === 'idle') { r.exposure += densityAt(r.pos) * dt; return; }
+  }
+  const dens = densityAt(r.pos);
+  r.exposure += dens * dt;
+  let v = r.T.speed * (1 - 0.6 * dens);
+  if (r.state === 'stair') v *= 0.8;
+  const dist = v * dt;
+  r.bob += dist * 7;
+
+  if (r.state === 'leave') { if (moveAlong(r, dist)) r.state = 'corridor'; }
+  else if (r.state === 'corridor') {
+    const s = Math.max(0, Math.min(NSEG - 1, Math.floor((r.pos.x + CX) / SEGW)));
+    const side = B.field[r.sp.f][s];
+    r.side = side;
+    r.path = [new V3(side * 9.7, r.sp.f * H, 1.15 + r.sp.jz * 0.6)];
+    if (moveAlong(r, dist)) { r.state = 'stair'; r.path = stairPath(side, r.sp.f, r.sp.jx, r.sp.jz); }
+  }
+  else if (r.state === 'stair') { if (moveAlong(r, dist)) { r.state = 'out'; r.path = exitPath(B, r.side, r.sp.jz); } }
+  else if (r.state === 'out') {
+    if (moveAlong(r, dist)) r.state = 'done';
+  }
+  if (!r.evac && Math.abs(r.pos.x) > 13.1) { r.evac = true; r.evacT = sim.t; }
+}
+
+/* ---------------- Events ---------------- */
+const logEl = document.getElementById('log');
+function fmt(t) { const s = Math.max(0, t); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
+function logEvent(who, text) {
+  const empty = logEl.querySelector('.empty'); if (empty) empty.remove();
+  const li = document.createElement('li');
+  const label = { a: 'A', b: 'B', f: '!', all: 'AB' }[who];
+  li.innerHTML = `<time>${fmt(sim.t)}</time><span class="who ${who}">${label}</span><span></span>`;
+  li.lastChild.textContent = text;
+  logEl.appendChild(li);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* ---------------- Build both ---------------- */
+const A = makeBuilding('normal');
+const Bld = makeBuilding('rescue');
+const buildings = [A, Bld];
+const N = SPECS.length;
+document.getElementById('totalN').textContent = `총 ${N}명`;
+
+function resetSim() {
+  sim.t = 0; sim.alarmT = null; sim.finished = false; sim.flags = {};
+  smoke.d.fill(0);
+  logEl.innerHTML = '<li class="empty">재생하면 발화, 감지, 표지판 전환 시각이 여기에 기록됩니다.</li>';
+  for (const B of buildings) {
+    B.field = nearestField(); B.logged = []; B.slots = { '-1': 0, '1': 0 }; B.doneT = null;
+    for (const r of B.residents) resetResident(B, r);
+    for (const s of B.signs) { s.target = s.angle = s.arrow.rotation.z = s.kind === 'corridor' ? (s.seg < 4 ? Math.PI : 0) : (s.side > 0 ? 0 : Math.PI); s.blocked = false; s.flash = 0; }
+  }
+  document.getElementById('verdict').hidden = true;
+  updateHud(true);
+}
+
+function stepSim(dt) {
+  sim.t += dt;
+  smokeStep(dt, sim.t);
+  const F = sim.flags;
+  if (!F.fire && sim.t >= FIRE_T) { F.fire = 1; logEvent('f', '2층 왼쪽 세대 발화'); }
+  if (sim.alarmT === null && A.sensors.some(s => smoke.d[s.cell] > SENSOR_TH)) { sim.alarmT = sim.t; logEvent('all', '연기 감지기 작동 · 화재 경보 발령, 주민 대피 시작'); }
+  if (!F.stairL && smoke.d[cellS(-1, 2)] > 0.25) { F.stairL = 1; logEvent('f', '연기가 왼쪽 계단을 타고 3층까지 확산'); }
+  for (const B of buildings) {
+    updateField(B);
+    for (const r of B.residents) stepResident(B, r, dt);
+    if (B.doneT == null && B.residents.every(r => r.evac)) {
+      B.doneT = Math.max(...B.residents.map(r => r.evacT));
+      logEvent(B === A ? 'a' : 'b', `전원 대피 완료 (${B.doneT.toFixed(1)}초)`);
+    }
+  }
+  if (!sim.finished && A.doneT != null && Bld.doneT != null) { sim.finished = true; sim.finishedAt = performance.now(); showVerdict(); }
+  if (sim.t > 240) { sim.finished = true; sim.finishedAt = performance.now(); }
+}
+
+/* ---------------- Visual update ---------------- */
+const tmpC = new THREE.Color(), darkC = new THREE.Color(0x22272b);
+function animate(dtR) {
+  const vt = sim.vt;
+  for (const B of buildings) {
+    // Fire
+    const on = sim.t >= FIRE_T, g = on ? Math.min(1, (sim.t - FIRE_T) / 3) : 0, fl = 0.75 + 0.25 * Math.sin(vt * 17) * Math.sin(vt * 7.3);
+    const F = B.fire;
+    F.group.visible = on;
+    F.light.intensity = 3.2 * g * fl;
+    F.core.scale.setScalar((0.6 + 0.5 * g) * (0.9 + 0.15 * fl)); F.core.rotation.y += dtR * 2;
+    F.glow.scale.setScalar(4.5 * g * (0.85 + 0.2 * fl));
+    const fp = F.flGeo.attributes.position.array, fa = F.flGeo.attributes.aAlpha.array;
+    F.flSeed.forEach((p, i) => {
+      const life = (vt * p.sp * 0.9 + p.ph) % 1;
+      fp[i * 3] = FIRE_X + p.x * (1 - life * 0.6); fp[i * 3 + 1] = FIRE_F * H + 0.2 + life * 2.2; fp[i * 3 + 2] = FIRE_Z + p.z;
+      fa[i] = on ? g * (1 - life) * 0.9 : 0;
+    });
+    F.flGeo.attributes.position.needsUpdate = true; F.flGeo.attributes.aAlpha.needsUpdate = true;
+
+    // Smoke
+    const sp = B.smoke.geo.attributes.position.array, sa = B.smoke.geo.attributes.aAlpha.array;
+    B.smoke.parts.forEach((p, i) => {
+      const d = smoke.d[p.c];
+      let x, y, z, a;
+      if (p.c < 24) {
+        const f = Math.floor(p.c / NSEG), s = p.c % NSEG;
+        x = -CX + (s + p.bx) * SEGW + Math.sin(vt * 0.35 + p.ph) * 0.45;
+        z = -2.8 + p.bz * 4.6;
+        const depth = p.r * (0.25 + 2.5 * d);
+        y = f * H + H - 0.3 - depth + Math.sin(vt * 0.5 + p.ph) * 0.08;
+        a = Math.max(0, Math.min(1, d * 1.7 - p.r * 0.35)) * 0.42;
+      } else {
+        const side = p.c < 27 ? -1 : 1, f = (p.c - 24) % 3;
+        x = side * (10.2 + p.bx * 2.6);
+        z = -2.8 + p.bz * 4.6;
+        const yMin = f === 0 ? 0.2 : f * H - H / 2, yMax = f === NF - 1 ? f * H + H - 0.3 : f * H + H / 2;
+        const fr = (p.r + vt * 0.07 * (0.6 + d)) % 1;
+        y = yMin + fr * (yMax - yMin);
+        a = d * 0.5 * Math.sin(fr * Math.PI);
+      }
+      sp[i * 3] = x; sp[i * 3 + 1] = y; sp[i * 3 + 2] = z; sa[i] = a;
+    });
+    B.smoke.geo.attributes.position.needsUpdate = true; B.smoke.geo.attributes.aAlpha.needsUpdate = true;
+
+    // Sensors
+    for (const s of B.sensors) {
+      const hit = smoke.d[s.cell] > SENSOR_TH;
+      if (hit !== s.on) { s.on = hit; const c = tok(hit ? '--fire' : '--exit'); s.ledM.color.set(c); s.haloM.color.set(c); }
+      const blink = hit ? (Math.sin(vt * 14) > 0 ? 1 : 0.25) : 0.55;
+      s.haloM.opacity = blink * s.haloM.userData.k; s.ledM.opacity = (hit ? 0.4 + 0.6 * blink : 1) * s.ledM.userData.k;
+      s.halo.scale.setScalar(hit ? 1.25 : 0.6);
+    }
+
+    // Signs
+    for (const s of B.signs) {
+      if (s.kind === 'corridor') s.target = B.field[s.f][s.seg] > 0 ? 0 : Math.PI;
+      else if (s.kind === 'stair') {
+        const blocked = B.mode === 'rescue' && sim.alarmT !== null && B.field[s.f][s.seg] !== s.side;
+        if (blocked !== s.blocked) {
+          s.blocked = blocked; s.flash = 1;
+          const c = tok(blocked ? '--fire' : '--exit'); s.panelM.color.set(c); s.haloM.color.set(c);
+        }
+        s.target = blocked ? (s.side > 0 ? Math.PI : 0) : (s.side > 0 ? 0 : Math.PI);
+      }
+      if (Math.abs(s.target - s.angle) > 0.002) {
+        if (Math.abs(s.target - s.angle) > 0.5 && s.flash < 0.5) s.flash = 1;
+        s.angle += (s.target - s.angle) * Math.min(1, dtR * 3.2);
+        s.arrow.rotation.z = s.angle;
+      }
+      s.flash = Math.max(0, s.flash - dtR * 0.7);
+      const pulse = s.flash > 0 ? 0.5 + 0.5 * Math.sin(vt * 16) : 0;
+      s.haloM.opacity = (0.3 + 0.6 * pulse * s.flash + (s.blocked ? 0.25 : 0)) * s.haloM.userData.k;
+      s.g.scale.setScalar(1 + 0.18 * s.flash);
+    }
+
+    // Residents
+    for (const r of B.residents) {
+      r.g.position.copy(r.pos);
+      if (r.state !== 'idle' && r.state !== 'done') r.g.position.y += Math.abs(Math.sin(r.bob)) * 0.06;
+      tmpC.copy(r.base).lerp(darkC, Math.min(0.75, r.exposure / 14));
+      r.m.color.copy(tmpC);
+      const rf = Math.max(0, Math.min(NF - 1, Math.round(r.pos.y / H)));
+      const outside = Math.abs(r.pos.x) > 13.1;
+      r.m.opacity = sim.focus < 0 || outside || rf === sim.focus ? 1 : 0.12;
+      r.m.depthWrite = r.m.opacity === 1;
+    }
+  }
+}
+
+/* ---------------- Focus (floor highlight) ---------------- */
+function setFocus(f) {
+  sim.focus = f;
+  for (const B of buildings) {
+    for (let k = 0; k < NF; k++) for (const m of B.floorMats[k]) {
+      const b = m.userData.base, dim = f >= 0 && k !== f;
+      const k2 = dim ? 0.1 : 1;
+      m.userData.k = k2;
+      if (m.isShaderMaterial) continue;
+      const wantT = dim || b.transparent;
+      if (m.transparent !== wantT) { m.transparent = wantT; m.needsUpdate = true; }
+      m.opacity = b.opacity * k2;
+      m.depthWrite = dim ? false : b.depthWrite;
+    }
+    B.smoke.mat.uniforms.uFocus.value = f; B.fire.flMat.uniforms.uFocus.value = f;
+  }
+  document.querySelectorAll('#floorSeg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.floor === f)));
+}
+
+/* ---------------- Layout + render ---------------- */
+let vps = [], cssW = 0, cssH = 0, wide = true;
+const mqWide = matchMedia('(min-width: 720px)');
+function layout() {
+  cssW = viewportEl.clientWidth; cssH = viewportEl.clientHeight;
+  wide = mqWide.matches;
+  renderer.setSize(cssW, cssH, false);
+  if (wide) {
+    const reserve = hudEl.offsetHeight + 12, h = Math.max(200, cssH - reserve);
+    const w = Math.floor(cssW / 2);
+    vps = [{ x: 0, y: 0, w, h, top: 0 }, { x: w, y: 0, w: cssW - w, h, top: 0 }];
+  } else {
+    const h = Math.floor(cssH / 2);
+    vps = [{ x: 0, w: cssW, h, top: 0 }, { x: 0, w: cssW, h: cssH - h, top: h }];
+  }
+}
+new ResizeObserver(layout).observe(viewportEl);
+new ResizeObserver(layout).observe(hudEl);
+mqWide.addEventListener('change', layout);
+
+function render() {
+  renderer.setScissorTest(false);
+  renderer.setClearColor(tok('--scene') || '#e2e7ea');
+  renderer.clear();
+  renderer.setScissorTest(true);
+  const pr = renderer.getPixelRatio();
+  buildings.forEach((B, i) => {
+    const vp = vps[i]; if (!vp) return;
+    const glY = cssH - vp.top - vp.h - (wide ? 0 : 0);
+    // In wide mode the viewport sits on top, the HUD reserve stays at the bottom
+    const yb = wide ? cssH - vp.h : glY;
+    renderer.setViewport(vp.x, yb, vp.w, vp.h);
+    renderer.setScissor(vp.x, yb, vp.w, vp.h);
+    placeCamera(vp);
+    const scale = vp.h * pr / (2 * Math.tan(FOV * Math.PI / 360));
+    B.smoke.mat.uniforms.uScale.value = scale; B.fire.flMat.uniforms.uScale.value = scale;
+    renderer.render(B.scene, camera);
+  });
+}
+
+/* ---------------- HUD ---------------- */
+const $ = id => document.getElementById(id);
+let hudTick = 0;
+function stats(B) {
+  const done = B.residents.filter(r => r.evac).length;
+  const exp = B.residents.reduce((a, r) => a + r.exposure, 0) / N;
+  const time = B.doneT != null ? B.doneT : sim.t;
+  return { done, exp, time };
+}
+function updateHud(force) {
+  if (!force && performance.now() - hudTick < 100) return;
+  hudTick = performance.now();
+  const a = stats(A), b = stats(Bld);
+  $('doneA').textContent = `${a.done}/${N}`; $('doneB').textContent = `${b.done}/${N}`;
+  $('barDoneA').style.width = `${a.done / N * 100}%`; $('barDoneB').style.width = `${b.done / N * 100}%`;
+  const tm = Math.max(a.time, b.time, 1);
+  $('timeA').textContent = `${a.time.toFixed(1)}초${A.doneT != null ? ' ✓' : ''}`;
+  $('timeB').textContent = `${b.time.toFixed(1)}초${Bld.doneT != null ? ' ✓' : ''}`;
+  $('barTimeA').style.width = `${a.time / tm * 100}%`; $('barTimeB').style.width = `${b.time / tm * 100}%`;
+  const em = Math.max(a.exp, b.exp, 0.5);
+  $('expA').textContent = a.exp.toFixed(2); $('expB').textContent = b.exp.toFixed(2);
+  $('barExpA').style.width = `${a.exp / em * 100}%`; $('barExpB').style.width = `${b.exp / em * 100}%`;
+  $('clock').innerHTML = `${fmt(sim.t)}<small>시뮬레이션 ${sim.speed}×</small>`;
+
+  const sA = $('statusA'), sB = $('statusB');
+  const set = (el, st, txt) => { if (el.dataset.state !== st || el.textContent !== txt) { el.dataset.state = st; el.textContent = txt; } };
+  if (A.doneT != null) set(sA, 'done', `전원 대피 · ${A.doneT.toFixed(1)}초`);
+  else if (sim.alarmT !== null) set(sA, 'alarm', '경보 발령 · 표지판 그대로');
+  else set(sA, 'idle', sim.t >= FIRE_T ? '발화 · 감지 전' : '평상시');
+  const turned = Bld.signs.filter(s => (s.kind === 'corridor' && Bld.field[s.f][s.seg] !== (s.seg < 4 ? -1 : 1)) || s.blocked).length;
+  if (Bld.doneT != null) set(sB, 'done', `전원 대피 · ${Bld.doneT.toFixed(1)}초`);
+  else if (turned) set(sB, 'switch', `표지판 ${turned}개 전환 · 우회 안내 중`);
+  else if (sim.alarmT !== null) set(sB, 'alarm', '경보 발령 · 경로 계산 중');
+  else set(sB, 'idle', sim.t >= FIRE_T ? '발화 · 감지 전' : '평상시');
+}
+function showVerdict() {
+  const a = stats(A), b = stats(Bld), v = $('verdict');
+  const dt = a.time - b.time, de = a.exp > 0 ? (1 - b.exp / a.exp) * 100 : 0;
+  v.innerHTML = `구조판 건물(B)은 전원 대피가 <b>${Math.abs(dt).toFixed(1)}초 ${dt >= 0 ? '빨랐고' : '늦었고'}</b>, 주민 평균 연기 노출량은 <b>${de.toFixed(0)}% ${de >= 0 ? '낮았습니다' : '높았습니다'}</b>. 잠시 후 처음부터 다시 재생합니다.`;
+  v.hidden = false;
+}
+
+const playIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>재생';
+const pauseIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>일시정지';
+function syncPlay() { $('btnPlay').innerHTML = sim.playing ? pauseIcon : playIcon; }
+$('btnPlay').addEventListener('click', () => {
+  if (sim.finished) { resetSim(); sim.playing = true; } else sim.playing = !sim.playing;
+  syncPlay();
+});
+$('btnReplay').addEventListener('click', () => { resetSim(); sim.playing = true; syncPlay(); });
+$('speedSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  sim.speed = +b.dataset.speed;
+  document.querySelectorAll('#speedSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  updateHud(true);
+});
+$('floorSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setFocus(+b.dataset.floor); });
+$('btnView').addEventListener('click', () => Object.assign(cam, CAM_DEFAULT));
+
+/* ---------------- Pointer: orbit, zoom, floor pick ---------------- */
+const pointers = new Map(); let downAt = null, moved = 0, pinch0 = 0, zoom0 = 1;
+canvas.addEventListener('pointerdown', e => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  canvas.setPointerCapture(e.pointerId);
+  if (pointers.size === 1) { downAt = { x: e.clientX, y: e.clientY }; moved = 0; }
+  if (pointers.size === 2) { const [p, q] = [...pointers.values()]; pinch0 = Math.hypot(p.x - q.x, p.y - q.y); zoom0 = cam.zoom; }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinch0) cam.zoom = Math.min(1.8, Math.max(0.45, zoom0 * pinch0 / d));
+    moved += 10; return;
+  }
+  moved += Math.abs(dx) + Math.abs(dy);
+  if (moved > 4) {
+    canvas.classList.add('dragging');
+    cam.theta -= dx * 0.006;
+    if (e.pointerType !== 'touch') cam.phi = Math.min(1.35, Math.max(0.06, cam.phi + dy * 0.005));
+  }
+});
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  canvas.classList.remove('dragging');
+  if (pointers.size === 0 && moved <= 4 && downAt && e.type === 'pointerup') pickFloor(e);
+  if (pointers.size < 2) pinch0 = 0;
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.zoom = Math.min(1.8, Math.max(0.45, cam.zoom * Math.exp(e.deltaY * 0.001))); }, { passive: false });
+
+const ray = new THREE.Raycaster();
+function pickFloor(e) {
+  const rect = canvas.getBoundingClientRect(), px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const i = vps.findIndex(v => px >= v.x && px < v.x + v.w && py >= v.top && py < v.top + v.h);
+  if (i < 0) return;
+  const vp = vps[i]; placeCamera(vp);
+  ray.setFromCamera({ x: (px - vp.x) / vp.w * 2 - 1, y: -((py - vp.top) / vp.h) * 2 + 1 }, camera);
+  const hit = ray.intersectObjects(buildings[i].pick, false)[0];
+  if (!hit) { setFocus(-1); return; }
+  const f = hit.object.userData.floor;
+  setFocus(sim.focus === f ? -1 : f);
+}
+
+/* ---------------- Theme ---------------- */
+function applyTheme() {
+  for (const t of themed) t.obj[t.prop].set(tok(t.token) || '#888');
+  for (const B of buildings) {
+    B.labels.forEach(l => l.userData.draw());
+    for (const s of B.signs) { const c = tok(s.blocked ? '--fire' : '--exit'); s.panelM.color.set(c); s.haloM.color.set(c); }
+    for (const s of B.sensors) { const c = tok(s.on ? '--fire' : '--exit'); s.ledM.color.set(c); s.haloM.color.set(c); }
+    for (const r of B.residents) r.base.set(tok(r.T.token));
+  }
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+new MutationObserver(applyTheme).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts) document.fonts.ready.then(() => buildings.forEach(B => B.labels.forEach(l => l.userData.draw())));
+
+/* ---------------- Legend ---------------- */
+$('legend').innerHTML = Object.values(TYPES).map(T =>
+  `<li><span class="pill" style="background: var(${T.token}); height: ${Math.round(T.h * 22)}px"></span><span>${T.label}</span><span class="spd">${T.speed.toFixed(2)} m/s</span></li>`).join('');
+
+/* ---------------- Loop ---------------- */
+setFocus(-1);
+resetSim();
+syncPlay();
+layout();
+let last = performance.now();
+function frame(now) {
+  const dtR = Math.min(0.05, (now - last) / 1000); last = now;
+  if (sim.playing) {
+    sim.vt += dtR;
+    if (!sim.finished) {
+      const simDt = dtR * sim.speed, n = Math.ceil(simDt / (1 / 30)), h = simDt / n;
+      for (let i = 0; i < n; i++) stepSim(h);
+    } else if (now - sim.finishedAt > 7000) resetSim();
+  }
+  animate(sim.playing ? dtR : 0);
+  updateHud();
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
